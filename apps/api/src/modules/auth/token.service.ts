@@ -108,11 +108,13 @@ export class TokenService {
     };
 
     const accessToken = await this.jwt.signAsync(
-      { ...base, type: 'access' },
+      { ...base, type: 'access', jti: randomUUID() },
       { secret: this.config.get('JWT_ACCESS_SECRET', { infer: true }), expiresIn: accessTtl },
     );
+    // A unique jti guarantees each refresh token (and thus its hash) is unique,
+    // even when the same user logs in multiple times within the same second.
     const refreshToken = await this.jwt.signAsync(
-      { ...base, type: 'refresh' },
+      { ...base, type: 'refresh', jti: randomUUID() },
       { secret: this.config.get('JWT_REFRESH_SECRET', { infer: true }), expiresIn: refreshTtl },
     );
 
