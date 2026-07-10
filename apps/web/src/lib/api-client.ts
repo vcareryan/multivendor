@@ -16,10 +16,20 @@ export class ApiError extends Error {
 }
 
 function doFetch(path: string, init: RequestInit): Promise<Response> {
+  // Browser calls cross to api.<base> through the reverse proxy, which rewrites
+  // X-Forwarded-Host and loses the storefront host. Send the real store host in
+  // a custom header the proxy leaves intact so the API can resolve the tenant.
+  // (Safe: authenticated routes bind the tenant from the JWT, overriding this;
+  //  it only affects public storefront reads.)
+  const storeHost = typeof window !== 'undefined' ? window.location.host : '';
   return fetch(`${API_URL}${path}`, {
     ...init,
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(init.headers as Record<string, string>) },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(storeHost ? { 'x-store-host': storeHost } : {}),
+      ...(init.headers as Record<string, string>),
+    },
   });
 }
 
