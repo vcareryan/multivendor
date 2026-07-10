@@ -20,6 +20,7 @@ FROM deps AS build
 COPY . .
 RUN pnpm --filter @utanstore/db generate
 RUN pnpm --filter @utanstore/shared build
+RUN pnpm --filter @utanstore/db build
 RUN pnpm --filter @utanstore/api build
 
 # ---- runtime ----
