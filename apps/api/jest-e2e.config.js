@@ -16,4 +16,7 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   testTimeout: 60000,
+  // The Throttler's Redis client and other pooled connections can keep the
+  // event loop alive after tests complete; forceExit ensures Jest exits.
+  forceExit: true,
 };
