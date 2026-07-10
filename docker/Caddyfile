@@ -27,15 +27,10 @@ api.{$APP_BASE_DOMAIN} {
 }
 
 # ─────────────────────────────────────────────────────────────
-# System subdomains (*.utanstore.com) — every store's preview host
-# ─────────────────────────────────────────────────────────────
-*.{$APP_BASE_DOMAIN} {
-	reverse_proxy web:3000
-}
-
-# ─────────────────────────────────────────────────────────────
-# Custom store domains — TLS issued on demand (gated by the ask endpoint).
-# Any hostname not matched above falls through here.
+# Everything else — store subdomains (<slug>.utanstore.com) AND custom store
+# domains. TLS is issued PER HOSTNAME on demand via the HTTP challenge (no
+# DNS-provider/wildcard cert needed), gated by the /public/domains/authorize
+# ask-endpoint so only valid stores + verified custom domains get certificates.
 # ─────────────────────────────────────────────────────────────
 https:// {
 	tls {
