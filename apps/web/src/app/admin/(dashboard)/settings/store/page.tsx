@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api-client';
 import { Button, Card, Input, PageHeader } from '@/components/admin/ui';
+import { ImageUploader } from '@/components/admin/ImageUploader';
 
 interface Store { id: string; name: string; whatsappNumber?: string | null; currency: string; logoUrl?: string | null }
 
@@ -26,7 +27,7 @@ export default function StoreSettingsPage() {
         <Input label="Store name" value={s.name} onChange={(e) => setS({ ...s, name: e.target.value })} />
         <Input label="WhatsApp number (e.g. 919876543210)" value={s.whatsappNumber ?? ''} onChange={(e) => setS({ ...s, whatsappNumber: e.target.value })} />
         <Input label="Currency" value={s.currency} onChange={(e) => setS({ ...s, currency: e.target.value })} />
-        <Input label="Logo URL" value={s.logoUrl ?? ''} onChange={(e) => setS({ ...s, logoUrl: e.target.value })} />
+        <ImageUploader label="Store logo" value={s.logoUrl ? [s.logoUrl] : []} onChange={(urls) => setS({ ...s, logoUrl: urls[0] ?? null })} />
         <div className="flex items-center gap-3"><Button onClick={save}>Save</Button>{msg && <span className="text-sm text-emerald-600">{msg}</span>}</div>
       </Card>
     </div>

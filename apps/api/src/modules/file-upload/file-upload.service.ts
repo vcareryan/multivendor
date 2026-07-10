@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'node:crypto';
 import { ALLOWED_IMAGE_MIME, MAX_IMAGE_BYTES } from '@utanstore/shared';
@@ -12,10 +12,15 @@ export class FileUploadService {
   private readonly s3: S3Client;
   private readonly bucket: string;
   private readonly publicUrl: string;
+  private readonly mediaBase: string;
 
   constructor(config: ConfigService<Env, true>) {
     this.bucket = config.get('S3_BUCKET', { infer: true });
     this.publicUrl = config.get('S3_PUBLIC_URL', { infer: true });
+    const baseDomain = config.get('APP_BASE_DOMAIN', { infer: true });
+    // Objects are served back through the API (api.<domain>/api/v1/media/<key>)
+    // so we don't need MinIO to be publicly reachable or a separate CDN host.
+    this.mediaBase = `https://api.${baseDomain}/api/v1/media`;
     this.s3 = new S3Client({
       region: config.get('S3_REGION', { infer: true }),
       endpoint: config.get('S3_ENDPOINT', { infer: true }),
@@ -29,24 +34,58 @@ export class FileUploadService {
 
   /**
    * Returns a presigned PUT URL for a validated image upload, scoped to the
-   * tenant's key prefix. The client uploads directly to S3/MinIO (CDN-ready).
+   * tenant's key prefix. (Kept for future direct-to-S3 uploads / CDN setups.)
    */
   async createUploadUrl(params: { filename: string; contentType: string; sizeBytes?: number }) {
-    if (!ALLOWED_IMAGE_MIME.includes(params.contentType)) {
-      throw new BadRequestException(`Unsupported file type. Allowed: ${ALLOWED_IMAGE_MIME.join(', ')}`);
-    }
-    if (params.sizeBytes && params.sizeBytes > MAX_IMAGE_BYTES) {
-      throw new BadRequestException(`File too large. Max ${(MAX_IMAGE_BYTES / 1024 / 1024).toFixed(0)}MB`);
-    }
-
-    const tenantId = getRequestContext()?.tenantId ?? 'shared';
-    const ext = this.extFor(params.contentType);
-    const key = `stores/${tenantId}/${new Date().getFullYear()}/${randomUUID()}${ext}`;
-
+    this.assertAllowed(params.contentType, params.sizeBytes);
+    const key = this.keyFor(params.contentType);
     const command = new PutObjectCommand({ Bucket: this.bucket, Key: key, ContentType: params.contentType });
     const uploadUrl = await getSignedUrl(this.s3, command, { expiresIn: 300 });
+    return { uploadUrl, key, publicUrl: `${this.mediaBase}/${key}`, expiresIn: 300 };
+  }
 
-    return { uploadUrl, key, publicUrl: `${this.publicUrl}/${key}`, expiresIn: 300 };
+  /**
+   * Accepts a base64-encoded image, stores it in object storage, and returns a
+   * public URL served back through the API. This works on a single VPS where
+   * MinIO is only reachable on the internal network.
+   */
+  async uploadImage(params: { filename?: string; contentType: string; dataBase64: string }) {
+    this.assertAllowed(params.contentType);
+    const base64 = params.dataBase64.includes(',') ? params.dataBase64.split(',')[1] : params.dataBase64;
+    const buffer = Buffer.from(base64, 'base64');
+    if (buffer.length === 0) throw new BadRequestException('Empty file');
+    if (buffer.length > MAX_IMAGE_BYTES) {
+      throw new BadRequestException(`File too large. Max ${(MAX_IMAGE_BYTES / 1024 / 1024).toFixed(0)}MB`);
+    }
+    const key = this.keyFor(params.contentType);
+    await this.s3.send(
+      new PutObjectCommand({ Bucket: this.bucket, Key: key, Body: buffer, ContentType: params.contentType }),
+    );
+    return { url: `${this.mediaBase}/${key}`, key };
+  }
+
+  /** Fetch a stored object for streaming back to the client. */
+  async getObject(key: string) {
+    const res = await this.s3.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+    return {
+      body: res.Body as NodeJS.ReadableStream,
+      contentType: res.ContentType ?? 'application/octet-stream',
+      contentLength: res.ContentLength,
+    };
+  }
+
+  private assertAllowed(contentType: string, sizeBytes?: number): void {
+    if (!ALLOWED_IMAGE_MIME.includes(contentType)) {
+      throw new BadRequestException(`Unsupported file type. Allowed: ${ALLOWED_IMAGE_MIME.join(', ')}`);
+    }
+    if (sizeBytes && sizeBytes > MAX_IMAGE_BYTES) {
+      throw new BadRequestException(`File too large. Max ${(MAX_IMAGE_BYTES / 1024 / 1024).toFixed(0)}MB`);
+    }
+  }
+
+  private keyFor(contentType: string): string {
+    const tenantId = getRequestContext()?.tenantId ?? 'shared';
+    return `stores/${tenantId}/${new Date().getFullYear()}/${randomUUID()}${this.extFor(contentType)}`;
   }
 
   private extFor(mime: string): string {

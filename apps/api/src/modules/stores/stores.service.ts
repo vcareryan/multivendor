@@ -23,12 +23,13 @@ export class StoresService {
 
   private async loadStorefrontConfig(): Promise<StorefrontConfig> {
     const store = await this.prisma.client.store.findFirst({
-      include: { theme: true, checkoutSetting: true, customerAuthSetting: true },
+      include: { theme: true, checkoutSetting: true, customerAuthSetting: true, settings: true },
     });
     if (!store) throw new NotFoundException('Store not found');
 
     const checkout = store.checkoutSetting;
     const auth = store.customerAuthSetting;
+    const s = store.settings;
 
     return {
       store: {
@@ -50,6 +51,14 @@ export class StoresService {
         allowGuest: checkout?.allowGuest ?? true,
         emailRequirement: (checkout?.emailRequirement ?? 'OPTIONAL') as StorefrontConfig['checkout']['emailRequirement'],
         enabledAuthMethods: (auth?.enabledMethods ?? []) as StorefrontConfig['checkout']['enabledAuthMethods'],
+      },
+      seo: {
+        title: s?.metaTitle ?? null,
+        description: s?.metaDescription ?? null,
+        keywords: s?.metaKeywords ?? null,
+        ogImageUrl: s?.ogImageUrl ?? null,
+        googleSiteVerification: s?.googleSiteVerification ?? null,
+        noindex: s?.noindex ?? false,
       },
     };
   }
