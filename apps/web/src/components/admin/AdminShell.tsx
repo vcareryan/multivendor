@@ -21,6 +21,7 @@ const NAV = [
   { href: '/admin/settings/theme', label: 'Theme' },
   { href: '/admin/settings/domain', label: 'Domain' },
   { href: '/admin/settings/subscription', label: 'Subscription' },
+  { href: '/admin/account', label: 'My account' },
 ];
 
 interface Me {
@@ -33,18 +34,16 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [me, setMe] = useState<Me | null>(null);
-  const [ready, setReady] = useState(false);
 
+  // Auth check runs in the BACKGROUND — the shell renders immediately so the
+  // panel feels instant (no full-screen "Loading…" gate). We only redirect if
+  // the session is actually invalid.
   useEffect(() => {
     api
       .get<Me>('/auth/me')
-      .then((u) => {
-        setMe(u);
-        setReady(true);
-      })
+      .then(setMe)
       .catch((e) => {
         if (e instanceof ApiError && e.status === 401) router.replace('/admin/login');
-        else setReady(true);
       });
   }, [router]);
 
@@ -53,16 +52,15 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     router.replace('/admin/login');
   }
 
-  if (!ready) return <div className="flex min-h-screen items-center justify-center text-slate-400">Loading…</div>;
-
   return (
     <div className="flex min-h-screen bg-slate-50">
-      <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white md:block">
-        <div className="p-4 text-lg font-semibold text-emerald-700">UtanStore Admin</div>
-        <nav className="flex flex-col gap-0.5 px-2 pb-4 text-sm">
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
+        <div className="p-4 text-lg font-semibold text-emerald-700">Admin Panel</div>
+        <nav className="flex flex-1 flex-col gap-0.5 px-2 pb-4 text-sm">
           {NAV.map((n) => (
             <Link
               key={n.href}
+              prefetch
               href={n.href}
               className={`rounded-lg px-3 py-2 ${pathname === n.href ? 'bg-emerald-50 font-medium text-emerald-700' : 'text-slate-600 hover:bg-slate-100'}`}
             >
@@ -70,11 +68,18 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
         </nav>
+        <div className="border-t border-slate-100 px-4 py-3 text-[11px] leading-tight text-slate-400">
+          Developed By Income inn Technologies
+        </div>
       </aside>
       <div className="flex flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
-          <span className="text-sm text-slate-500">{me?.email}</span>
-          <button onClick={logout} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm">Logout</button>
+          <Link href="/admin/account" className="text-sm text-slate-500 hover:text-emerald-700">
+            {me?.email ?? 'My account'}
+          </Link>
+          <button onClick={logout} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50">
+            Logout
+          </button>
         </header>
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </div>

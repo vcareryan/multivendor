@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useCart } from '@/lib/cart-store';
+import { InstallButton } from '@/components/pwa/InstallButton';
 
 export function Header({ storeName, logoUrl }: { storeName: string; logoUrl?: string | null }) {
   const count = useCart((s) => s.count());
@@ -24,7 +25,8 @@ export function Header({ storeName, logoUrl }: { storeName: string; logoUrl?: st
           <span className="font-heading text-lg font-semibold">{storeName}</span>
         </Link>
 
-        <nav className="flex items-center gap-4 text-sm">
+        <nav className="flex items-center gap-3 text-sm sm:gap-4">
+          <InstallButton />
           <Link href="/" className="hover:text-brand">Home</Link>
           <Link href="/cart" className="relative rounded-theme bg-brand px-3 py-1.5 text-brand-fg">
             Cart
