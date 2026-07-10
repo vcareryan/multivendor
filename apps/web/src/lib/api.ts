@@ -49,7 +49,12 @@ export async function apiServer<T>(path: string, init: RequestInit & { revalidat
   }
 
   const { revalidate, ...rest } = init;
-  const res = await fetch(`${API_URL}${path}`, {
+  // Next's Data Cache keys by URL only (not by our tenant header). Append the
+  // store host to the URL so cached entries are per-tenant — otherwise one
+  // store could be served another store's cached response. The API ignores it.
+  const sep = path.includes('?') ? '&' : '?';
+  const url = storeHost ? `${API_URL}${path}${sep}__tenant=${encodeURIComponent(storeHost)}` : `${API_URL}${path}`;
+  const res = await fetch(url, {
     ...rest,
     headers: { ...reqHeaders, ...(init.headers as Record<string, string>) },
     ...(revalidate !== undefined ? { next: { revalidate } } : { cache: 'no-store' }),

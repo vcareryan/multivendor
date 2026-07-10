@@ -11,6 +11,7 @@ import { ConfigModule } from './config/config.module';
 import type { Env } from './config/env.validation';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
+import { StorefrontCacheModule } from './common/cache/storefront-cache.module';
 import { CryptoModule } from './common/crypto/crypto.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 
@@ -67,6 +68,7 @@ import { SuperAdminModule } from './modules/super-admin/super-admin.module';
     }),
     PrismaModule,
     RedisModule,
+    StorefrontCacheModule,
     CryptoModule,
     TenantModule,
     AuditLogModule,
