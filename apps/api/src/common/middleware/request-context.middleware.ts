@@ -20,7 +20,18 @@ export class RequestContextMiddleware implements NestMiddleware {
     res.setHeader('x-request-id', requestId);
 
     // Resolve storefront tenant by host (returns null for platform hosts).
-    const host = (req.headers['x-forwarded-host'] as string) || req.headers.host || '';
+    // Preference order:
+    //   1. x-store-host  — set by the browser client for cross-origin calls to
+    //      api.<base>, where the proxy would otherwise overwrite X-Forwarded-Host.
+    //   2. x-forwarded-host — set by SSR (apiServer) hitting the API directly.
+    //   3. host — direct/local requests.
+    // Trusting x-store-host is safe: it only drives PUBLIC tenant resolution;
+    // authenticated routes rebind the tenant from the verified JWT.
+    const host =
+      (req.headers['x-store-host'] as string) ||
+      (req.headers['x-forwarded-host'] as string) ||
+      req.headers.host ||
+      '';
     const storeContext = await this.tenantResolution.resolveByHostname(host).catch(() => null);
 
     // Allow explicit tenant override header only for internal/preview use.
