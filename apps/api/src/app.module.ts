@@ -3,6 +3,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, Reflector } from '@nestjs/core'
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ConfigService } from '@nestjs/config';
+import { JwtModule } from '@nestjs/jwt';
 import Redis from 'ioredis';
 import { ThrottlerStorageRedisService } from 'nestjs-throttler-storage-redis';
 
@@ -47,6 +48,8 @@ import { SuperAdminModule } from './modules/super-admin/super-admin.module';
 @Module({
   imports: [
     ConfigModule,
+    // Global JwtModule so the app-wide JwtAuthGuard (APP_GUARD) can resolve JwtService.
+    JwtModule.register({ global: true }),
     ScheduleModule.forRoot(),
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
