@@ -1,0 +1,46 @@
+{
+  "common": {
+    "home": "Home",
+    "categories": "Categories",
+    "products": "Products",
+    "cart": "Cart",
+    "checkout": "Checkout",
+    "search": "Search",
+    "addToCart": "Add to cart",
+    "outOfStock": "Out of stock",
+    "viewAll": "View all",
+    "featured": "Featured",
+    "offers": "Offers",
+    "total": "Total",
+    "subtotal": "Subtotal",
+    "delivery": "Delivery",
+    "discount": "Discount",
+    "quantity": "Quantity",
+    "continue": "Continue",
+    "loading": "Loading...",
+    "empty": "Nothing here yet"
+  },
+  "checkout": {
+    "title": "Checkout",
+    "name": "Full name",
+    "phone": "Phone number",
+    "email": "Email (optional)",
+    "address": "Delivery address",
+    "notes": "Order notes",
+    "payNow": "Pay Now",
+    "orderWhatsApp": "Order via WhatsApp",
+    "sendOtp": "Send OTP",
+    "enterOtp": "Enter the OTP sent to your phone",
+    "verify": "Verify",
+    "placeOrder": "Place order",
+    "verifyPhoneFirst": "Verify your phone to continue",
+    "orderPlaced": "Order placed!",
+    "redirectingWhatsApp": "Redirecting you to WhatsApp..."
+  },
+  "order": {
+    "orderNumber": "Order number",
+    "status": "Status",
+    "thankYou": "Thank you for your order",
+    "trackHint": "Save your order number to track your order."
+  }
+}
