@@ -15,15 +15,20 @@
 # ─────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-# ============================ CONFIG (edit me) ============================
-DOMAIN="utanshop.com"                 # your base domain
-ACME_EMAIL="admin@utanshop.com"       # email for Let's Encrypt notices
-SUPERADMIN_EMAIL="admin@utanshop.com" # platform super-admin login
-SEED_DEMO="false"                     # "true" to also create a demo store
+# ==================== CONFIG (edit here or pass as env vars) ==============
+# Each value can be overridden by an environment variable, e.g.:
+#   DOMAIN=utanshop.com BRANCH=feat/utanstore-platform bash vps-setup.sh
+DOMAIN="${DOMAIN:-utanshop.com}"                 # your base domain
+ACME_EMAIL="${ACME_EMAIL:-admin@utanshop.com}"   # email for Let's Encrypt notices
+SUPERADMIN_EMAIL="${SUPERADMIN_EMAIL:-admin@utanshop.com}" # platform super-admin login
+SEED_DEMO="${SEED_DEMO:-false}"                  # "true" to also create a demo store
 
-REPO_URL="https://github.com/vcareryan/multivendor.git"
-BRANCH="main"                         # merge PR #1 to main first, or use: feat/utanstore-platform
-DEPLOY_DIR="/opt/utanshop"
+REPO_URL="${REPO_URL:-https://github.com/vcareryan/multivendor.git}"
+BRANCH="${BRANCH:-main}"                          # merge PR #1 to main first, or use: feat/utanstore-platform
+DEPLOY_DIR="${DEPLOY_DIR:-/opt/utanshop}"
+
+# If the repo is PRIVATE, pass a token in REPO_URL, e.g.:
+#   REPO_URL="https://<GITHUB_TOKEN>@github.com/vcareryan/multivendor.git"
 
 # If the repo is PRIVATE, use a token URL instead, e.g.:
 #   REPO_URL="https://<GITHUB_TOKEN>@github.com/vcareryan/multivendor.git"
