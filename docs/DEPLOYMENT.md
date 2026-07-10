@@ -50,7 +50,10 @@ ENCRYPTION_KEY=<hex64>
 S3_ACCESS_KEY=<minio-user>
 S3_SECRET_KEY=<minio-pass>
 S3_BUCKET=utanstore
-SEED_ON_START=true    # first boot only, then set false
+SEED_ON_START=true         # first boot only, then set false
+SEED_DEMO=false            # set true only if you want the demo store seeded
+SUPERADMIN_EMAIL=you@yourdomain.com
+SUPERADMIN_PASSWORD=<strong-admin-password>   # if omitted, a random one is generated + printed once
 ```
 
 > **Security model:** the API connects to Postgres as the non-privileged
@@ -84,10 +87,12 @@ docker compose exec minio mc anonymous set download local/utanstore
 
 - API health: `https://api.utanstore.com/api/v1/health`
 - API docs (Swagger): `https://api.utanstore.com/docs`
-- Super-admin: `https://admin.utanstore.com` (login `admin@utanstore.com`)
-- Demo store: `https://freshmart.utanstore.com`
+- Super-admin: `https://admin.utanstore.com` (login with `SUPERADMIN_EMAIL`)
+- Demo store (only if `SEED_DEMO=true`): `https://freshmart.utanstore.com`
 
-**Change the seeded passwords immediately** (`ChangeMe!SuperAdmin123`, `ChangeMe!Owner123`).
+The super-admin password is whatever you set in `SUPERADMIN_PASSWORD`; if you
+left it blank, check the `api` container logs for the generated one (printed
+once) and change it after first login.
 
 ## 6. Custom domains (per store)
 

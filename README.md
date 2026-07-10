@@ -47,15 +47,28 @@ utanstore/
 pnpm install
 # Postgres + Redis + MinIO (or use docker compose up -d postgres redis minio)
 cp .env.example .env            # fill DATABASE_URL, secrets, etc.
-pnpm db:generate && pnpm db:migrate && pnpm --filter @utanstore/db rls && pnpm db:seed
+pnpm db:generate && pnpm db:migrate && pnpm --filter @utanstore/db rls
+SEED_DEMO=true pnpm db:seed     # SEED_DEMO=true also creates a demo grocery store
 pnpm dev                        # api on :4000, web on :3000
 ```
 
 Local storefront tip: set `NEXT_PUBLIC_DEV_STORE_HOST=freshmart.utanstore.com`
 so `localhost:3000` resolves to the seeded demo store.
 
-Seeded logins (change immediately): super-admin `admin@utanstore.com` /
-`ChangeMe!SuperAdmin123`; store owner `owner@freshmart.com` / `ChangeMe!Owner123`.
+**Credentials are not hardcoded.** The seed reads `SUPERADMIN_EMAIL` /
+`SUPERADMIN_PASSWORD` (and `DEMO_OWNER_PASSWORD`); if a password is not provided
+it generates a strong random one and prints it **once** in the seed output.
+
+## Testing
+
+```bash
+pnpm --filter @utanstore/api test        # unit tests (no DB needed)
+pnpm --filter @utanstore/api test:e2e    # e2e smoke test (needs Postgres + Redis)
+```
+
+CI (`.github/workflows/ci.yml`) provisions Postgres 16 + Redis, runs migrations +
+RLS, builds every package, and runs both suites on each push — a full live
+end-to-end boot on every change.
 
 ## Documentation
 
