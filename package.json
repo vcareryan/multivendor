@@ -13,11 +13,11 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "db:generate": "pnpm --filter @utanstore/db generate",
-    "db:migrate": "pnpm --filter @utanstore/db migrate",
-    "db:deploy": "pnpm --filter @utanstore/db deploy",
-    "db:seed": "pnpm --filter @utanstore/db seed",
-    "db:studio": "pnpm --filter @utanstore/db studio",
+    "db:generate": "pnpm --filter @utanstore/db run generate",
+    "db:migrate": "pnpm --filter @utanstore/db run migrate",
+    "db:deploy": "pnpm --filter @utanstore/db run deploy",
+    "db:seed": "pnpm --filter @utanstore/db run seed",
+    "db:studio": "pnpm --filter @utanstore/db run studio",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\""
   },
   "devDependencies": {

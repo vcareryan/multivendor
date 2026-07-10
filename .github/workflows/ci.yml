@@ -75,7 +75,7 @@ jobs:
             "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='utan_app') THEN CREATE ROLE utan_app LOGIN PASSWORD 'app_password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS; END IF; GRANT CONNECT ON DATABASE utanstore TO utan_app; END \$\$;"
 
       - name: Prisma generate
-        run: pnpm --filter @utanstore/db generate
+        run: pnpm --filter @utanstore/db run generate
 
       - name: Build all packages
         run: pnpm build
@@ -84,13 +84,13 @@ jobs:
           NEXT_TELEMETRY_DISABLED: "1"
 
       - name: Apply migrations
-        run: pnpm --filter @utanstore/db deploy
+        run: pnpm --filter @utanstore/db run deploy
 
       - name: Apply Row-Level Security policies
-        run: pnpm --filter @utanstore/db rls
+        run: pnpm --filter @utanstore/db run rls
 
       - name: Seed base data (plans, templates, super-admin)
-        run: pnpm --filter @utanstore/db seed
+        run: pnpm --filter @utanstore/db run seed
 
       - name: Unit tests
         run: pnpm --filter @utanstore/api test
