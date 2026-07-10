@@ -23,13 +23,10 @@ RUN pnpm --filter @utanstore/web build
 FROM base AS runtime
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/packages ./packages
-COPY --from=build /app/apps/web/.next ./apps/web/.next
-COPY --from=build /app/apps/web/public ./apps/web/public
-COPY --from=build /app/apps/web/package.json ./apps/web/package.json
-COPY --from=build /app/apps/web/next.config.mjs ./apps/web/next.config.mjs
-COPY --from=build /app/package.json ./package.json
+# Copy the COMPLETE built workspace so the local next@14 binary resolves
+# (otherwise `npx next` downloads a newer, incompatible Next at runtime).
+COPY --from=build /app /app
 WORKDIR /app/apps/web
 EXPOSE 3000
-CMD ["npx", "next", "start", "-p", "3000"]
+# Run the workspace "start" script (next start) via pnpm so the LOCAL next is used.
+CMD ["pnpm", "start"]
