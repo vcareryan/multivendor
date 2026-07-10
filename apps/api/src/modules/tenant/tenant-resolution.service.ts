@@ -44,7 +44,10 @@ export class TenantResolutionService {
       if (host.endsWith(suffix)) {
         const slug = host.slice(0, -suffix.length);
         if (!slug || slug.includes('.')) return null; // multi-level or apex → not a store
-        const store = await this.prisma.client.store.findUnique({ where: { slug } });
+        // findFirst (not findUnique): Prisma batches findUnique through a
+        // dataloader, and the batched query escapes the per-op RLS-bypass
+        // transaction set by the tenant-aware client extension.
+        const store = await this.prisma.client.store.findFirst({ where: { slug } });
         if (store && store.status !== 'DISABLED') {
           return this.toContext(store, host);
         }
@@ -52,7 +55,7 @@ export class TenantResolutionService {
       }
 
       // 2) Custom / verified domain (exact hostname match)
-      const domain = await this.prisma.client.domain.findUnique({
+      const domain = await this.prisma.client.domain.findFirst({
         where: { hostname: host },
         include: { store: true },
       });

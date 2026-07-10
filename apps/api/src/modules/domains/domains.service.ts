@@ -29,7 +29,7 @@ export class DomainsService {
     if (host.endsWith(`.${this.baseDomain}`) || host === this.baseDomain) {
       throw new BadRequestException('System domains are managed automatically');
     }
-    const existing = await runBypassingRls(() => this.prisma.client.domain.findUnique({ where: { hostname: host } }));
+    const existing = await runBypassingRls(() => this.prisma.client.domain.findFirst({ where: { hostname: host } }));
     if (existing) throw new ConflictException('Domain already registered');
 
     return this.prisma.client.domain.create({
@@ -121,10 +121,10 @@ export class DomainsService {
     }
     if (h.endsWith(`.${this.baseDomain}`)) {
       const slug = h.slice(0, -(`.${this.baseDomain}`).length);
-      const store = await runBypassingRls(() => this.prisma.client.store.findUnique({ where: { slug } }));
+      const store = await runBypassingRls(() => this.prisma.client.store.findFirst({ where: { slug } }));
       return !!store && store.status !== 'DISABLED';
     }
-    const domain = await runBypassingRls(() => this.prisma.client.domain.findUnique({ where: { hostname: h } }));
+    const domain = await runBypassingRls(() => this.prisma.client.domain.findFirst({ where: { hostname: h } }));
     return !!domain && domain.status === 'VERIFIED';
   }
 
