@@ -34,5 +34,10 @@ export function runBypassingRls<T>(fn: () => Promise<T>): Promise<T> {
     userId: current?.userId ?? null,
     requestId: current?.requestId,
   };
-  return requestContextStorage.run(ctx, fn);
+  // Await INSIDE the context so the DB operation actually executes while
+  // bypassRls is active. Returning the promise unawaited would let it run after
+  // the async context has exited, defeating the bypass.
+  return requestContextStorage.run(ctx, async () => {
+    return await fn();
+  });
 }
