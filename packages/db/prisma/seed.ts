@@ -3,7 +3,12 @@ import { PLAN_LIMITS, type ThemeConfig } from '@utanstore/shared';
 import * as argon2 from 'argon2';
 import { randomBytes } from 'node:crypto';
 
-const prisma = new PrismaClient();
+// Seeding is an administrative/setup task, so it connects via the OWNER
+// connection (DIRECT_DATABASE_URL) which bypasses Row-Level Security. The
+// runtime app instead uses the non-privileged, RLS-enforced role.
+const prisma = new PrismaClient({
+  datasourceUrl: process.env.DIRECT_DATABASE_URL || process.env.DATABASE_URL,
+});
 
 /**
  * Resolve a password from an env var, or generate a strong random one.
