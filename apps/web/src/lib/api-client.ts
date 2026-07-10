@@ -15,16 +15,32 @@ export class ApiError extends Error {
   }
 }
 
-/**
- * Browser fetch. Sends credentials (httpOnly cookies) for admin routes; the
- * tenant is resolved server-side from the Host header for storefront routes.
- */
-export async function apiClient<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
+function doFetch(path: string, init: RequestInit): Promise<Response> {
+  return fetch(`${API_URL}${path}`, {
     ...init,
     credentials: 'include',
     headers: { 'Content-Type': 'application/json', ...(init.headers as Record<string, string>) },
   });
+}
+
+/**
+ * Browser fetch. Sends credentials (httpOnly cookies) for admin routes; the
+ * tenant is resolved server-side from the Host header for storefront routes.
+ *
+ * On a 401 (expired short-lived access token) it transparently calls
+ * /auth/refresh (using the long-lived refresh cookie) and retries once, so
+ * admin sessions don't break every 15 minutes.
+ */
+export async function apiClient<T>(path: string, init: RequestInit = {}, _retried = false): Promise<T> {
+  let res = await doFetch(path, init);
+
+  if (res.status === 401 && !_retried && path !== '/auth/refresh' && path !== '/auth/login') {
+    const refreshed = await doFetch('/auth/refresh', { method: 'POST' }).catch(() => null);
+    if (refreshed && refreshed.ok) {
+      res = await doFetch(path, init); // retry the original request once
+    }
+  }
+
   const json = (await res.json().catch(() => null)) as ApiEnvelope<T> | null;
   if (!res.ok || !json?.success) {
     throw new ApiError(res.status, typeof json?.message === 'string' ? json.message : `Request failed (${res.status})`, json);
