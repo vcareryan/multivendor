@@ -1,6 +1,11 @@
 import { headers, cookies } from 'next/headers';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
+// Server-side calls must hit the API DIRECTLY over the internal network, not
+// through the public reverse proxy (Caddy). Caddy rewrites `X-Forwarded-Host`
+// to the request's real Host (e.g. api.utanshop.com), which would clobber the
+// tenant host we forward for storefront resolution and yield "Store not found".
+const API_URL =
+  process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
 const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN ?? 'utanstore.com';
 /** Dev override: pretend requests come from this store host when on localhost. */
 const DEV_STORE_HOST = process.env.NEXT_PUBLIC_DEV_STORE_HOST;

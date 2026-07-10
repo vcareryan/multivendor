@@ -96,8 +96,12 @@ services:
       - api
     environment:
       NODE_ENV: production
+      # Browser-facing (client components) — public HTTPS through Caddy.
       NEXT_PUBLIC_API_URL: https://api.${APP_BASE_DOMAIN:-utanstore.com}/api/v1
       NEXT_PUBLIC_BASE_DOMAIN: ${APP_BASE_DOMAIN:-utanstore.com}
+      # Server-side (SSR) — talk to the API directly on the internal network so
+      # Caddy does not rewrite X-Forwarded-Host and break tenant resolution.
+      INTERNAL_API_URL: http://api:4000/api/v1
       SUPERADMIN_HOST: admin.${APP_BASE_DOMAIN:-utanstore.com}
     expose:
       - "3000"
