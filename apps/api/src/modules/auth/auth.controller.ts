@@ -1,13 +1,17 @@
-import { Body, Controller, Get, Post, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Put, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import {
+  changePasswordSchema,
   loginSchema,
   registerSchema,
+  updateProfileSchema,
+  type ChangePasswordInput,
   type JwtPayload,
   type LoginInput,
   type RegisterInput,
+  type UpdateProfileInput,
 } from '@utanstore/shared';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { Public, CurrentUser } from '../../common/decorators';
@@ -76,6 +80,39 @@ export class AuthController {
   @ApiOperation({ summary: 'Current authenticated user' })
   me(@CurrentUser() user: JwtPayload) {
     return { id: user.sub, email: user.email, role: user.role, tenantId: user.tenantId };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('profile')
+  @ApiOperation({ summary: 'Get the authenticated user profile (name, email, phone, role)' })
+  getProfile(@CurrentUser() user: JwtPayload) {
+    return this.auth.getProfile(user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put('profile')
+  @ApiOperation({ summary: 'Update own profile (name, phone)' })
+  updateProfile(
+    @CurrentUser() user: JwtPayload,
+    @Body(new ZodValidationPipe(updateProfileSchema)) dto: UpdateProfileInput,
+  ) {
+    return this.auth.updateProfile(user.sub, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  @ApiOperation({ summary: 'Change own password (revokes other sessions, keeps this one)' })
+  async changePassword(
+    @CurrentUser() user: JwtPayload,
+    @Body(new ZodValidationPipe(changePasswordSchema)) dto: ChangePasswordInput,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const identity = await this.auth.changePassword(user.sub, dto.currentPassword, dto.newPassword);
+    // Re-issue tokens for THIS device so the user stays signed in here.
+    const tokens = await this.auth.issueFor(identity, this.meta(req));
+    this.setAuthCookies(res, tokens);
+    return { changed: true };
   }
 
   @UseGuards(JwtAuthGuard)

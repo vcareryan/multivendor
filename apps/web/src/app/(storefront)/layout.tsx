@@ -30,7 +30,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
         <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
         <footer className="mt-12 border-t border-black/5 py-8 text-center text-sm text-[rgb(var(--color-muted))]">
           <p>{config.store.name}</p>
-          <p className="mt-1">Powered by UtanStore</p>
+          <p className="mt-1">Developed By Income inn Technologies</p>
         </footer>
       </div>
     </>

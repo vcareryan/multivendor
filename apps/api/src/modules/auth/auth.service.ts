@@ -149,6 +149,75 @@ export class AuthService {
     if (refreshToken) await this.tokens.revoke(refreshToken);
   }
 
+  /** Issue a fresh token pair for an already-authenticated identity. */
+  issueFor(
+    identity: { id: string; tenantId: string | null; role: UserRole; email: string },
+    meta?: { ip?: string; userAgent?: string },
+  ): Promise<TokenPair> {
+    return this.tokens.issue(identity, meta);
+  }
+
+  // ---- Account (self-service profile + password) ----
+
+  /** The authenticated user's own profile. */
+  async getProfile(userId: string) {
+    return runBypassingRls(async () => {
+      const user = await this.prisma.client.user.findUnique({ where: { id: userId } });
+      if (!user) throw new UnauthorizedException('Account not found');
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        twoFactorEnabled: user.twoFactorEnabled,
+        lastLoginAt: user.lastLoginAt,
+      };
+    });
+  }
+
+  /** Update the authenticated user's own name/phone. */
+  async updateProfile(userId: string, input: { name?: string; phone?: string | null }) {
+    return runBypassingRls(async () => {
+      const user = await this.prisma.client.user.update({
+        where: { id: userId },
+        data: {
+          ...(input.name !== undefined ? { name: input.name } : {}),
+          ...(input.phone !== undefined ? { phone: input.phone } : {}),
+        },
+      });
+      return { id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role };
+    });
+  }
+
+  /**
+   * Change the authenticated user's password. Verifies the current password,
+   * stores the new argon2 hash, and revokes ALL existing sessions so any other
+   * devices are logged out. Returns identity so the caller can re-issue tokens
+   * for the current session (keeping this device signed in).
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{ id: string; tenantId: string | null; role: UserRole; email: string }> {
+    const identity = await runBypassingRls(async () => {
+      const user = await this.prisma.client.user.findUnique({ where: { id: userId } });
+      if (!user) throw new UnauthorizedException('Account not found');
+
+      const ok = await argon2.verify(user.passwordHash, currentPassword).catch(() => false);
+      if (!ok) throw new BadRequestException('Current password is incorrect');
+
+      const passwordHash = await argon2.hash(newPassword);
+      await this.prisma.client.user.update({ where: { id: user.id }, data: { passwordHash } });
+      return { id: user.id, tenantId: user.tenantId, role: user.role, email: user.email };
+    });
+
+    // Invalidate every existing refresh token (all devices).
+    await this.tokens.revokeAllForUser(userId);
+    return identity;
+  }
+
   // ---- 2FA ----
   async setup2fa(userId: string, email: string): Promise<{ otpauthUrl: string; qrDataUrl: string; secret: string }> {
     const secret = authenticator.generateSecret();
