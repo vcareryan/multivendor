@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@utanstore/db';
 import type { ProductInput } from '@utanstore/shared';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StorefrontCacheService } from '../../common/cache/storefront-cache.service';
 import { slugify } from '../../common/utils/slug';
 import { parsePage, buildListResponse } from '../../common/utils/pagination';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
@@ -22,9 +23,28 @@ export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly subscriptions: SubscriptionsService,
+    private readonly cache: StorefrontCacheService,
   ) {}
 
   async list(query: ProductQuery, opts: { publicOnly: boolean }) {
+    // Cache public (storefront) listings — the hottest read path. Admin lists
+    // are not cached (they must always reflect the latest edits immediately).
+    if (opts.publicOnly) {
+      const key = `products:${JSON.stringify([
+        query.page ?? '1',
+        query.pageSize ?? '',
+        query.search ?? '',
+        query.categoryId ?? '',
+        query.categorySlug ?? '',
+        query.featured ?? '',
+        query.sort ?? '',
+      ])}`;
+      return this.cache.remember(key, 60, () => this.queryList(query, opts));
+    }
+    return this.queryList(query, opts);
+  }
+
+  private async queryList(query: ProductQuery, opts: { publicOnly: boolean }) {
     const { page, pageSize, skip, take } = parsePage(query);
     const where: Prisma.ProductWhereInput = { deletedAt: null };
 
@@ -87,7 +107,7 @@ export class ProductsService {
   async create(input: ProductInput) {
     await this.subscriptions.assertProductQuota();
     const t = this.prisma.tenantId;
-    return this.prisma.client.product.create({
+    const created = await this.prisma.client.product.create({
       data: {
         tenantId: t,
         name: input.name,
@@ -127,13 +147,15 @@ export class ProductsService {
       },
       include: { images: true, variants: true, addons: true },
     });
+    await this.cache.invalidate();
+    return created;
   }
 
   async update(id: string, input: Partial<ProductInput>) {
     await this.getById(id);
     const t = this.prisma.tenantId;
     // Replace nested collections when provided (simple + predictable for admin UI).
-    return this.prisma.client.$transaction(async () => {
+    const updated = await this.prisma.client.$transaction(async () => {
       if (input.imageUrls) {
         await this.prisma.client.productImage.deleteMany({ where: { productId: id } });
       }
@@ -188,16 +210,21 @@ export class ProductsService {
         include: { images: true, variants: true, addons: true },
       });
     });
+    await this.cache.invalidate();
+    return updated;
   }
 
   async remove(id: string) {
     await this.getById(id);
     await this.prisma.client.product.update({ where: { id }, data: { deletedAt: new Date(), isActive: false } });
+    await this.cache.invalidate();
     return { deleted: true };
   }
 
   async setActive(id: string, isActive: boolean) {
     await this.getById(id);
-    return this.prisma.client.product.update({ where: { id }, data: { isActive } });
+    const updated = await this.prisma.client.product.update({ where: { id }, data: { isActive } });
+    await this.cache.invalidate();
+    return updated;
   }
 }

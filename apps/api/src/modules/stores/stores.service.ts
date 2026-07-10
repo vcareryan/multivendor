@@ -7,13 +7,21 @@ import type {
   ThemeConfig,
 } from '@utanstore/shared';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StorefrontCacheService } from '../../common/cache/storefront-cache.service';
 
 @Injectable()
 export class StoresService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache: StorefrontCacheService,
+  ) {}
 
   /** Public storefront configuration (store + theme + checkout settings). */
   async getStorefrontConfig(): Promise<StorefrontConfig> {
+    return this.cache.remember('config', 120, () => this.loadStorefrontConfig());
+  }
+
+  private async loadStorefrontConfig(): Promise<StorefrontConfig> {
     const store = await this.prisma.client.store.findFirst({
       include: { theme: true, checkoutSetting: true, customerAuthSetting: true },
     });
@@ -62,7 +70,7 @@ export class StoresService {
     timezone?: string;
   }) {
     const store = await this.getStore();
-    return this.prisma.client.store.update({
+    const updated = await this.prisma.client.store.update({
       where: { id: store.id },
       data: {
         ...(data.name !== undefined ? { name: data.name } : {}),
@@ -74,15 +82,19 @@ export class StoresService {
         ...(data.timezone !== undefined ? { timezone: data.timezone } : {}),
       },
     });
+    await this.cache.invalidate();
+    return updated;
   }
 
   async updateSettings(data: Record<string, unknown>) {
     const store = await this.getStore();
-    return this.prisma.client.storeSetting.upsert({
+    const updated = await this.prisma.client.storeSetting.upsert({
       where: { tenantId: store.id },
       create: { tenantId: store.id, ...data },
       update: data,
     });
+    await this.cache.invalidate();
+    return updated;
   }
 
   // ---- Checkout settings ----
@@ -101,11 +113,13 @@ export class StoresService {
 
   async updateCheckoutSettings(input: CheckoutSettingsInput) {
     const store = await this.getStore();
-    return this.prisma.client.checkoutSetting.upsert({
+    const updated = await this.prisma.client.checkoutSetting.upsert({
       where: { tenantId: store.id },
       create: { tenantId: store.id, ...input, defaultChannel: input.defaultChannel ?? null },
       update: { ...input, defaultChannel: input.defaultChannel ?? null },
     });
+    await this.cache.invalidate();
+    return updated;
   }
 
   // ---- Customer auth settings ----
@@ -124,10 +138,12 @@ export class StoresService {
 
   async updateCustomerAuthSettings(input: CustomerAuthSettingsInput) {
     const store = await this.getStore();
-    return this.prisma.client.customerAuthSetting.upsert({
+    const updated = await this.prisma.client.customerAuthSetting.upsert({
       where: { tenantId: store.id },
       create: { tenantId: store.id, ...input, defaultMethod: input.defaultMethod ?? null },
       update: { ...input, defaultMethod: input.defaultMethod ?? null },
     });
+    await this.cache.invalidate();
+    return updated;
   }
 }

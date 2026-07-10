@@ -1,11 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { ThemeConfig } from '@utanstore/shared';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StorefrontCacheService } from '../../common/cache/storefront-cache.service';
 import { runBypassingRls } from '../../common/context/request-context';
 
 @Injectable()
 export class ThemesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache: StorefrontCacheService,
+  ) {}
 
   /** Available industry templates (global). */
   listTemplates(industry?: string) {
@@ -27,11 +31,13 @@ export class ThemesService {
   async updateThemeConfig(config: ThemeConfig) {
     const store = await this.prisma.client.store.findFirst();
     if (!store) throw new NotFoundException('Store not found');
-    return this.prisma.client.theme.upsert({
+    const theme = await this.prisma.client.theme.upsert({
       where: { tenantId: store.id },
       create: { tenantId: store.id, config: config as object },
       update: { config: config as object },
     });
+    await this.cache.invalidate();
+    return theme;
   }
 
   /** Switch to a template (copies its default config as the starting point). */
@@ -40,10 +46,12 @@ export class ThemesService {
     if (!store) throw new NotFoundException('Store not found');
     const template = await runBypassingRls(() => this.prisma.raw.industryTemplate.findUnique({ where: { id: templateId } }));
     if (!template) throw new NotFoundException('Template not found');
-    return this.prisma.client.theme.upsert({
+    const theme = await this.prisma.client.theme.upsert({
       where: { tenantId: store.id },
       create: { tenantId: store.id, templateId, config: template.defaultConfig as object },
       update: { templateId, config: template.defaultConfig as object },
     });
+    await this.cache.invalidate();
+    return theme;
   }
 }

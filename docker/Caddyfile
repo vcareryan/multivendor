@@ -21,6 +21,7 @@ api.{$APP_BASE_DOMAIN} {
 # Platform apex + www + super-admin — served by the web app
 # ─────────────────────────────────────────────────────────────
 {$APP_BASE_DOMAIN}, www.{$APP_BASE_DOMAIN}, admin.{$APP_BASE_DOMAIN} {
+	encode zstd gzip
 	reverse_proxy web:3000
 }
 
@@ -34,5 +35,6 @@ https:// {
 	tls {
 		on_demand
 	}
+	encode zstd gzip
 	reverse_proxy web:3000
 }
