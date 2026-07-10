@@ -1,0 +1,941 @@
+// ─────────────────────────────────────────────────────────────────────────
+// UtanStore — Prisma schema
+// Multi-tenant (shared DB + tenantId + RLS). Money = integer minor units.
+// Every tenant-owned model carries `tenantId` and is protected by an RLS policy
+// (see prisma/rls.sql). Table names are mapped to snake_case; the tenant column
+// is kept as "tenantId" and referenced quoted in RLS SQL.
+// ─────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+// ═══════════════════════════════ ENUMS ══════════════════════════════════
+
+enum UserRole {
+  SUPER_ADMIN
+  STORE_OWNER
+  STORE_MANAGER
+  STAFF
+  CUSTOMER
+}
+
+enum StoreStatus {
+  ACTIVE
+  SUSPENDED
+  DISABLED
+  PENDING_SETUP
+}
+
+enum IsolationMode {
+  SHARED
+  SCHEMA
+}
+
+enum Industry {
+  GROCERY
+  TEXTILE
+  HOTEL_RESTAURANT
+  BAKERY
+  GENERAL_STORE
+  SUPERMARKET
+  BOUTIQUE
+  ELECTRONICS
+  OTHER
+}
+
+enum DomainStatus {
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+enum DomainType {
+  SYSTEM_SUBDOMAIN
+  CUSTOM
+}
+
+enum ProductType {
+  SIMPLE
+  VARIABLE
+  WEIGHT_BASED
+}
+
+enum OrderStatus {
+  NEW
+  WHATSAPP_SENT
+  ACCEPTED
+  PREPARING
+  READY
+  DELIVERED
+  CANCELLED
+}
+
+enum FulfillmentType {
+  DELIVERY
+  PICKUP
+}
+
+enum CheckoutMode {
+  WHATSAPP_ONLY
+  PAYMENT_ONLY
+  BOTH
+}
+
+enum CheckoutChannel {
+  WHATSAPP
+  PAY_NOW
+}
+
+enum PaymentStatus {
+  PENDING
+  OTP_VERIFIED
+  INITIATED
+  PAID
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum PaymentProviderType {
+  RAZORPAY
+  STRIPE
+  PAYPAL
+}
+
+enum PaymentMode {
+  TEST
+  LIVE
+}
+
+enum CustomerAuthMethod {
+  GOOGLE
+  WHATSAPP_OTP
+  SMS_OTP
+  PHONE_SIMPLE
+  GUEST
+}
+
+enum EmailRequirement {
+  REQUIRED
+  OPTIONAL
+  NOT_NEEDED
+}
+
+enum OtpChannel {
+  SMS
+  WHATSAPP
+}
+
+enum OtpPurpose {
+  CHECKOUT
+  CUSTOMER_LOGIN
+  PHONE_VERIFY
+}
+
+enum OtpStatus {
+  SENT
+  VERIFIED
+  EXPIRED
+  FAILED
+}
+
+enum SmsProviderType {
+  MSG91
+  TWILIO
+}
+
+enum WhatsAppProviderType {
+  META_CLOUD
+  GUPSHUP
+  TWILIO
+}
+
+enum PlanTier {
+  FREE
+  BASIC
+  PREMIUM
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  PAYMENT_SETTING_CHANGE
+  AUTH_SETTING_CHANGE
+  IMPERSONATE
+}
+
+// ═══════════════════════════ PLATFORM / TENANT ══════════════════════════
+
+/// The tenant. One row per store/business.
+model Store {
+  id            String        @id @default(uuid()) @db.Uuid
+  name          String
+  slug          String        @unique
+  industry      Industry      @default(OTHER)
+  status        StoreStatus   @default(PENDING_SETUP)
+  isolationMode IsolationMode @default(SHARED)
+
+  logoUrl        String?
+  whatsappNumber String? // international format for wa.me (e.g. 919876543210)
+  currency       String  @default("INR")
+  defaultLocale  String  @default("en")
+  supportedLocales String[] @default(["en", "ml"])
+  timezone       String  @default("Asia/Kolkata")
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // Relations
+  users               User[]
+  settings            StoreSetting?
+  domains             Domain[]
+  theme               Theme?
+  checkoutSetting     CheckoutSetting?
+  customerAuthSetting CustomerAuthSetting?
+  paymentSetting      StorePaymentSetting?
+  googleAuthSetting   GoogleAuthSetting?
+  whatsappSetting     WhatsAppBusinessSetting?
+  smsSetting          SMSProviderSetting?
+
+  categories     Category[]
+  products       Product[]
+  productImages  ProductImage[]
+  productVariants ProductVariant[]
+  productAddons  ProductAddon[]
+  inventory      Inventory[]
+  customers      Customer[]
+  orders         Order[]
+  orderItems     OrderItem[]
+  coupons        Coupon[]
+  deliveryAreas  DeliveryArea[]
+  carts          Cart[]
+
+  subscription   TenantSubscription?
+  paymentTxns    PaymentTransaction[]
+  otpVerifications OTPVerification[]
+  whatsappLogs   WhatsAppOrderLog[]
+  auditLogs      AuditLog[]
+
+  @@index([status])
+  @@index([industry])
+  @@map("stores")
+}
+
+/// Admin/staff/super-admin identities. Customers are modeled separately.
+model User {
+  id       String  @id @default(uuid()) @db.Uuid
+  tenantId String? @db.Uuid // null for SUPER_ADMIN
+  store    Store?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  email        String
+  phone        String?
+  name         String
+  passwordHash String
+  role         UserRole @default(STORE_OWNER)
+  isActive     Boolean  @default(true)
+
+  // Security
+  twoFactorSecret     String? // encrypted TOTP secret
+  twoFactorEnabled    Boolean   @default(false)
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId, role])
+  @@index([email])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique // sha-256 of the refresh token
+  familyId  String   @db.Uuid // rotation family for reuse detection
+  userAgent String?
+  ip        String?
+  revokedAt DateTime?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+// ═══════════════════════════ STORE CONFIG ═══════════════════════════════
+
+model StoreSetting {
+  id        String @id @default(uuid()) @db.Uuid
+  tenantId  String @unique @db.Uuid
+  store     Store  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  address       String?
+  city          String?
+  state         String?
+  pincode       String?
+  contactEmail  String?
+  contactPhone  String?
+  gstin         String?
+  businessHours Json? // { mon: {open,close}, ... }
+  socialLinks   Json? // { instagram, facebook, ... }
+  metaTitle     String?
+  metaDescription String?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("store_settings")
+}
+
+model Domain {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @db.Uuid
+  store    Store  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  hostname          String       @unique // e.g. www.mystore.com  OR  slug.utanstore.com
+  type              DomainType   @default(CUSTOM)
+  status            DomainStatus @default(PENDING)
+  isPrimary         Boolean      @default(false)
+  verificationToken String
+  verifiedAt        DateTime?
+  lastCheckedAt     DateTime?
+  failureReason     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("domains")
+}
+
+/// Base layout family per industry (global, managed by super-admin).
+model IndustryTemplate {
+  id           String   @id @default(uuid()) @db.Uuid
+  industry     Industry
+  key          String   @unique // e.g. "grocery.default"
+  name         String
+  description  String?
+  defaultConfig Json // default ThemeConfig JSON
+  isActive     Boolean  @default(true)
+  isPremium    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  themes Theme[]
+
+  @@index([industry])
+  @@map("industry_templates")
+}
+
+/// Per-store theme configuration (data-driven storefront).
+model Theme {
+  id         String  @id @default(uuid()) @db.Uuid
+  tenantId   String  @unique @db.Uuid
+  store      Store   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  templateId String? @db.Uuid
+  template   IndustryTemplate? @relation(fields: [templateId], references: [id])
+
+  config    Json // ThemeConfig (colors, fonts, banners, layout, features)
+  updatedAt DateTime @updatedAt
+
+  @@map("themes")
+}
+
+// ═════════════════════ CHECKOUT & CUSTOMER-AUTH SETTINGS ═════════════════
+
+model CheckoutSetting {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @unique @db.Uuid
+  store    Store  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  mode                    CheckoutMode     @default(WHATSAPP_ONLY)
+  defaultChannel          CheckoutChannel?
+  requireLogin            Boolean          @default(false)
+  requireOtpBeforeAddress Boolean          @default(false)
+  allowGuest              Boolean          @default(true)
+  emailRequirement        EmailRequirement @default(OPTIONAL)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("checkout_settings")
+}
+
+model CustomerAuthSetting {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @unique @db.Uuid
+  store    Store  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  enabledMethods       CustomerAuthMethod[] @default([])
+  defaultMethod        CustomerAuthMethod?
+  otpTtlSeconds        Int                  @default(300)
+  otpMaxRetries        Int                  @default(5)
+  otpResendDelaySeconds Int                 @default(30)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("customer_auth_settings")
+}
+
+// ═══════════════════ INTEGRATION SETTINGS (ENCRYPTED) ════════════════════
+// All secret fields hold AES-256-GCM ciphertext and are never returned raw.
+
+model StorePaymentSetting {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @unique @db.Uuid
+  store    Store  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  onlinePaymentEnabled Boolean              @default(false)
+  provider             PaymentProviderType?
+  mode                 PaymentMode          @default(TEST)
+  currency             String               @default("INR")
+
+  keyIdEnc        String? // encrypted
+  keySecretEnc    String? // encrypted
+  webhookSecretEnc String? // encrypted
+  successUrl      String?
+  failureUrl      String?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("store_payment_settings")
+}
+
+model GoogleAuthSetting {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @unique @db.Uuid
+  store    Store  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  enabled                Boolean  @default(false)
+  clientId               String?
+  clientSecretEnc        String? // encrypted
+  callbackUrl            String?
+  allowedRedirectDomains String[] @default([])
+
+  updatedAt DateTime @updatedAt
+
+  @@map("google_auth_settings")
+}
+
+model WhatsAppBusinessSetting {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @unique @db.Uuid
+  store    Store  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  enabled           Boolean              @default(false)
+  provider          WhatsAppProviderType @default(META_CLOUD)
+  apiTokenEnc       String? // encrypted
+  phoneNumberId     String?
+  businessAccountId String?
+  otpTemplateName   String?
+  languageCode      String               @default("en")
+  webhookSecretEnc  String? // encrypted
+  mode              PaymentMode          @default(TEST)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("whatsapp_business_settings")
+}
+
+model SMSProviderSetting {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @unique @db.Uuid
+  store    Store  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  enabled     Boolean         @default(false)
+  provider    SmsProviderType @default(MSG91)
+  apiKeyEnc   String? // encrypted
+  senderId    String?
+  templateId  String?
+  countryCode String          @default("91")
+  mode        PaymentMode     @default(TEST)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("sms_provider_settings")
+}
+
+// ═══════════════════════════════ CATALOG ════════════════════════════════
+
+model Category {
+  id       String  @id @default(uuid()) @db.Uuid
+  tenantId String  @db.Uuid
+  store    Store   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name     String
+  nameMl   String?
+  slug     String
+  imageUrl String?
+  position Int     @default(0)
+  isActive Boolean @default(true)
+
+  parentId String?    @db.Uuid
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryTree")
+
+  products Product[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, isActive, position])
+  @@index([tenantId, parentId])
+  @@map("categories")
+}
+
+model Product {
+  id       String  @id @default(uuid()) @db.Uuid
+  tenantId String  @db.Uuid
+  store    Store   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name           String
+  nameMl         String?
+  slug           String
+  description    String?
+  descriptionMl  String?
+  type           ProductType @default(SIMPLE)
+  categoryId     String?     @db.Uuid
+  category       Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  priceMinor     Int
+  salePriceMinor Int?
+  sku            String?
+  barcode        String?
+  stock          Int     @default(0)
+  trackInventory Boolean @default(true)
+  weightGrams    Int?
+
+  isActive   Boolean @default(true)
+  isFeatured Boolean @default(false)
+  isPreOrder Boolean @default(false)
+
+  images   ProductImage[]
+  variants ProductVariant[]
+  addons   ProductAddon[]
+  inventory Inventory[]
+  orderItems OrderItem[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([tenantId, slug])
+  @@unique([tenantId, sku])
+  @@index([tenantId, isActive, categoryId])
+  @@index([tenantId, isFeatured])
+  @@index([tenantId, createdAt])
+  @@map("products")
+}
+
+model ProductImage {
+  id        String  @id @default(uuid()) @db.Uuid
+  tenantId  String  @db.Uuid
+  store     Store   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId String  @db.Uuid
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  url      String
+  alt      String?
+  position Int     @default(0)
+
+  @@index([tenantId, productId])
+  @@map("product_images")
+}
+
+model ProductVariant {
+  id        String  @id @default(uuid()) @db.Uuid
+  tenantId  String  @db.Uuid
+  store     Store   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId String  @db.Uuid
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  name           String // attribute name e.g. "Size / Color"
+  label          String // value e.g. "L / Red"
+  sku            String?
+  priceMinor     Int
+  salePriceMinor Int?
+  stock          Int     @default(0)
+  weightGrams    Int?
+  isActive       Boolean @default(true)
+
+  orderItems OrderItem[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId, productId])
+  @@map("product_variants")
+}
+
+model ProductAddon {
+  id        String  @id @default(uuid()) @db.Uuid
+  tenantId  String  @db.Uuid
+  store     Store   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId String  @db.Uuid
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  name       String
+  priceMinor Int
+  isActive   Boolean @default(true)
+
+  @@index([tenantId, productId])
+  @@map("product_addons")
+}
+
+/// Stock ledger (append-only movements) for auditable inventory.
+model Inventory {
+  id        String  @id @default(uuid()) @db.Uuid
+  tenantId  String  @db.Uuid
+  store     Store   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId String  @db.Uuid
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId String? @db.Uuid
+
+  changeQty Int // + restock, - sale/adjustment
+  reason    String // "sale", "restock", "manual", "cancel-restock"
+  reference String? // order id / note
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, productId])
+  @@map("inventory_movements")
+}
+
+// ══════════════════════════════ COMMERCE ════════════════════════════════
+
+/// Customers are tenant-scoped: same phone can exist in multiple stores.
+model Customer {
+  id       String  @id @default(uuid()) @db.Uuid
+  tenantId String  @db.Uuid
+  store    Store   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name          String?
+  phone         String
+  phoneVerified Boolean @default(false)
+  email         String?
+  emailVerified Boolean @default(false)
+
+  identities CustomerIdentity[]
+  orders     Order[]
+  carts      Cart[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, phone])
+  @@index([tenantId, createdAt])
+  @@map("customers")
+}
+
+/// Linked auth identities (google sub, otp-verified phone, etc.)
+model CustomerIdentity {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @db.Uuid
+  customerId String   @db.Uuid
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  provider   CustomerAuthMethod
+  providerId String // google sub / phone / email
+  createdAt  DateTime @default(now())
+
+  @@unique([tenantId, provider, providerId])
+  @@index([tenantId, customerId])
+  @@map("customer_identities")
+}
+
+/// Server-side cart snapshot (optional; storefront may use local cart).
+model Cart {
+  id         String    @id @default(uuid()) @db.Uuid
+  tenantId   String    @db.Uuid
+  store      Store     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customerId String?   @db.Uuid
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  items     Json // serialized cart lines
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@map("carts")
+}
+
+model Order {
+  id          String @id @default(uuid()) @db.Uuid
+  tenantId    String @db.Uuid
+  store       Store  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderNumber String // human-friendly, unique per tenant
+
+  customerId String?   @db.Uuid
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  status  OrderStatus     @default(NEW)
+  channel CheckoutChannel @default(WHATSAPP)
+  fulfillment FulfillmentType @default(DELIVERY)
+
+  customerName    String
+  customerPhone   String
+  customerEmail   String?
+  deliveryAddress String?
+  deliveryAreaId  String? @db.Uuid
+  notes           String?
+
+  subtotalMinor Int
+  discountMinor Int    @default(0)
+  deliveryMinor Int    @default(0)
+  totalMinor    Int
+  currency      String @default("INR")
+  couponCode    String?
+
+  items      OrderItem[]
+  payment    PaymentTransaction?
+  whatsappLog WhatsAppOrderLog?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, orderNumber])
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, customerId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(uuid()) @db.Uuid
+  tenantId  String  @db.Uuid
+  store     Store   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderId   String  @db.Uuid
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String? @db.Uuid
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variantId String? @db.Uuid
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  name           String // snapshot at order time
+  variantLabel   String?
+  unitPriceMinor Int
+  quantity       Int
+  addons         Json? // [{ name, priceMinor }]
+  lineTotalMinor Int
+
+  @@index([tenantId, orderId])
+  @@map("order_items")
+}
+
+model Coupon {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @db.Uuid
+  store    Store  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  code          String
+  discountType  DiscountType
+  value         Int // percent (1-100) or fixed minor units
+  minOrderMinor Int          @default(0)
+  maxRedemptions Int?
+  redemptions   Int          @default(0)
+  startsAt      DateTime?
+  endsAt        DateTime?
+  isActive      Boolean      @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, code])
+  @@index([tenantId, isActive])
+  @@map("coupons")
+}
+
+model DeliveryArea {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @db.Uuid
+  store    Store  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name          String
+  pincode       String?
+  feeMinor      Int     @default(0)
+  minOrderMinor Int     @default(0)
+  isActive      Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, isActive])
+  @@map("delivery_areas")
+}
+
+// ═══════════════════════ PAYMENTS & VERIFICATION ════════════════════════
+
+model PaymentTransaction {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @db.Uuid
+  store    Store  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderId  String @unique @db.Uuid
+  order    Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  provider      PaymentProviderType
+  mode          PaymentMode         @default(TEST)
+  status        PaymentStatus       @default(PENDING)
+  amountMinor   Int
+  currency      String              @default("INR")
+
+  providerOrderId   String? // razorpay order_id / stripe payment_intent
+  providerPaymentId String?
+  providerSignature String?
+  failureReason     String?
+  rawWebhook        Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, status])
+  @@index([providerOrderId])
+  @@map("payment_transactions")
+}
+
+/// OTP audit + rate-limit record. The live, hashed OTP lives in Redis w/ TTL;
+/// this row stores only a hash and status for auditing and abuse detection.
+model OTPVerification {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @db.Uuid
+  store    Store  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  phone     String
+  channel   OtpChannel
+  purpose   OtpPurpose
+  codeHash  String // sha-256(code) — never store plaintext
+  status    OtpStatus  @default(SENT)
+  attempts  Int        @default(0)
+  ip        String?
+  expiresAt DateTime
+  verifiedAt DateTime?
+  createdAt DateTime   @default(now())
+
+  @@index([tenantId, phone, purpose])
+  @@index([tenantId, createdAt])
+  @@map("otp_verifications")
+}
+
+// ══════════════════════════ SUBSCRIPTIONS ═══════════════════════════════
+
+/// Global plan catalog (managed by super-admin).
+model SubscriptionPlan {
+  id       String   @id @default(uuid()) @db.Uuid
+  tier     PlanTier @unique
+  name     String
+  priceMinor Int    @default(0)
+  currency String   @default("INR")
+  interval String   @default("month") // month | year
+  limits   Json // PlanLimits JSON
+  isActive Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscriptions TenantSubscription[]
+
+  @@map("subscription_plans")
+}
+
+model TenantSubscription {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @unique @db.Uuid
+  store    Store  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  planId   String @db.Uuid
+  plan     SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  status            SubscriptionStatus @default(TRIALING)
+  currentPeriodEnd  DateTime?
+  cancelAtPeriodEnd Boolean            @default(false)
+
+  // Usage counters (reset monthly by a scheduled job)
+  ordersThisMonth Int      @default(0)
+  usageResetAt    DateTime @default(now())
+
+  // Future gateway linkage (Stripe/Razorpay subscription ids)
+  gatewaySubscriptionId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tenant_subscriptions")
+}
+
+// ══════════════════════════════ LOGS ════════════════════════════════════
+
+model AuditLog {
+  id       String  @id @default(uuid()) @db.Uuid
+  tenantId String? @db.Uuid
+  store    Store?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId   String? @db.Uuid
+  user     User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  action     AuditAction
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime    @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([userId])
+  @@map("audit_logs")
+}
+
+model WhatsAppOrderLog {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @db.Uuid
+  store    Store  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderId  String @unique @db.Uuid
+  order    Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  ownerPhone String
+  message    String
+  waLink     String
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@map("whatsapp_order_logs")
+}
+
+/// Global platform settings (super-admin).
+model SystemSetting {
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}

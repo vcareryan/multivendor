@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Theme tokens — overridden per-store at runtime by ThemeProvider */
+  --color-brand: 22 163 74;
+  --color-brand-fg: 255 255 255;
+  --color-accent: 234 88 12;
+  --color-surface: 255 255 255;
+  --color-muted: 100 116 139;
+  --font-heading: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --radius-theme: 0.5rem;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  font-family: var(--font-body);
+  color: #0f172a;
+  background: #f8fafc;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-heading);
+}
