@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api-client';
 import { formatMoney } from '@/lib/format';
 import { Button, Card, Input, PageHeader, Select, Textarea } from '@/components/admin/ui';
+import { ImageUploader } from '@/components/admin/ImageUploader';
 
 interface Product {
   id: string;
@@ -14,11 +15,24 @@ interface Product {
   stock: number;
   isActive: boolean;
   isFeatured: boolean;
-  category?: { name: string } | null;
+  description?: string | null;
+  category?: { id: string; name: string } | null;
+  images?: { url: string }[];
 }
 interface Category { id: string; name: string }
 
-const emptyForm = { name: '', priceMajor: '', salePriceMajor: '', stock: '0', sku: '', categoryId: '', description: '', isFeatured: false, isActive: true };
+const emptyForm = {
+  name: '',
+  priceMajor: '',
+  salePriceMajor: '',
+  stock: '0',
+  sku: '',
+  categoryId: '',
+  description: '',
+  isFeatured: false,
+  isActive: true,
+  images: [] as string[],
+};
 
 export default function ProductsPage() {
   const [rows, setRows] = useState<Product[]>([]);
@@ -51,7 +65,7 @@ export default function ProductsPage() {
       description: form.description || null,
       isFeatured: form.isFeatured,
       isActive: form.isActive,
-      imageUrls: [],
+      imageUrls: form.images,
       variants: [],
       addons: [],
     };
@@ -81,10 +95,11 @@ export default function ProductsPage() {
       salePriceMajor: p.salePriceMinor ? (p.salePriceMinor / 100).toString() : '',
       stock: p.stock.toString(),
       sku: '',
-      categoryId: '',
-      description: '',
+      categoryId: p.category?.id ?? '',
+      description: p.description ?? '',
       isFeatured: p.isFeatured,
       isActive: p.isActive,
+      images: p.images?.map((i) => i.url) ?? [],
     });
     setOpen(true);
   }
@@ -107,6 +122,9 @@ export default function ProductsPage() {
             <Input label="Stock" type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
             <Input label="SKU" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
             <div className="md:col-span-2"><Textarea label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+            <div className="md:col-span-2">
+              <ImageUploader label="Product images" multiple value={form.images} onChange={(images) => setForm({ ...form, images })} />
+            </div>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isFeatured} onChange={(e) => setForm({ ...form, isFeatured: e.target.checked })} /> Featured</label>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> Active</label>
             <div className="flex gap-2 md:col-span-2">

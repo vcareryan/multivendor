@@ -61,6 +61,14 @@ export interface StorefrontConfig {
     emailRequirement: EmailRequirement;
     enabledAuthMethods: CustomerAuthMethod[];
   };
+  seo: {
+    title: string | null;
+    description: string | null;
+    keywords: string | null;
+    ogImageUrl: string | null;
+    googleSiteVerification: string | null;
+    noindex: boolean;
+  };
 }
 
 /** Data-driven theme configuration stored per store. */

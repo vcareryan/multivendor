@@ -19,6 +19,7 @@ const NAV = [
   { href: '/admin/settings/payments', label: 'Payments' },
   { href: '/admin/settings/customer-auth', label: 'Customer verification' },
   { href: '/admin/settings/theme', label: 'Theme' },
+  { href: '/admin/settings/seo', label: 'SEO & Google' },
   { href: '/admin/settings/domain', label: 'Domain' },
   { href: '/admin/settings/subscription', label: 'Subscription' },
   { href: '/admin/account', label: 'My account' },

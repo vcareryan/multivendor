@@ -17,4 +17,10 @@ export class FileUploadController {
   presign(@Body() body: { filename: string; contentType: string; sizeBytes?: number }) {
     return this.uploads.createUploadUrl(body);
   }
+
+  @Post('image')
+  @ApiOperation({ summary: 'Upload an image (base64) — returns a public media URL' })
+  uploadImage(@Body() body: { filename?: string; contentType: string; dataBase64: string }) {
+    return this.uploads.uploadImage(body);
+  }
 }

@@ -314,6 +314,10 @@ model StoreSetting {
   socialLinks   Json? // { instagram, facebook, ... }
   metaTitle     String?
   metaDescription String?
+  metaKeywords    String?
+  ogImageUrl      String?
+  googleSiteVerification String?
+  noindex         Boolean @default(false)
 
   updatedAt DateTime @updatedAt
 
