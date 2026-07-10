@@ -25,11 +25,11 @@ RUN pnpm --filter @utanstore/api build
 # ---- runtime ----
 FROM base AS runtime
 ENV NODE_ENV=production
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/packages ./packages
-COPY --from=build /app/apps/api/dist ./apps/api/dist
-COPY --from=build /app/apps/api/package.json ./apps/api/package.json
-COPY --from=build /app/package.json ./package.json
+# Copy the COMPLETE built workspace. pnpm keeps per-package node_modules that
+# symlink into the root .pnpm store, so the whole tree must be present for
+# module resolution to work (reflect-metadata for the API, ts-node + the base
+# tsconfig for the seed, etc.).
+COPY --from=build /app /app
 WORKDIR /app/apps/api
 EXPOSE 4000
 # Runs migrations + RLS, then starts the API (see docker-entrypoint).
