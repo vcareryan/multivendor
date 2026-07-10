@@ -7,8 +7,6 @@
 	# and known system subdomains — preventing certificate-issuance abuse.
 	on_demand_tls {
 		ask http://api:4000/api/v1/public/domains/authorize
-		interval 2m
-		burst 5
 	}
 }
 
