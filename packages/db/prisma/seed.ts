@@ -1,8 +1,19 @@
 import { PrismaClient, PlanTier, Industry, UserRole, StoreStatus } from '@prisma/client';
 import { PLAN_LIMITS, type ThemeConfig } from '@utanstore/shared';
 import * as argon2 from 'argon2';
+import { randomBytes } from 'node:crypto';
 
 const prisma = new PrismaClient();
+
+/**
+ * Resolve a password from an env var, or generate a strong random one.
+ * Returns whether it was generated so the caller can print it once.
+ */
+function resolvePassword(envVar: string): { plaintext: string; generated: boolean } {
+  const fromEnv = process.env[envVar];
+  if (fromEnv && fromEnv.length >= 8) return { plaintext: fromEnv, generated: false };
+  return { plaintext: `Utan-${randomBytes(12).toString('base64url')}`, generated: true };
+}
 
 const PLAN_META: Record<PlanTier, { name: string; priceMinor: number }> = {
   FREE: { name: 'Free', priceMinor: 0 },
@@ -187,42 +198,45 @@ async function main() {
   }
   console.log('  ✓ industry templates');
 
-  // 3) Super admin
-  const superAdminPassword = await argon2.hash('ChangeMe!SuperAdmin123');
-  await prisma.user.upsert({
-    where: { tenantId_email: { tenantId: null as unknown as string, email: 'admin@utanstore.com' } },
-    update: {},
-    create: {
-      email: 'admin@utanstore.com',
-      name: 'Platform Admin',
-      passwordHash: superAdminPassword,
-      role: UserRole.SUPER_ADMIN,
-      tenantId: null,
-    },
-  }).catch(async () => {
-    // Composite unique with null tenantId can be finicky; fall back to findFirst
-    const existing = await prisma.user.findFirst({ where: { email: 'admin@utanstore.com', role: UserRole.SUPER_ADMIN } });
-    if (!existing) {
-      await prisma.user.create({
-        data: {
-          email: 'admin@utanstore.com',
-          name: 'Platform Admin',
-          passwordHash: superAdminPassword,
-          role: UserRole.SUPER_ADMIN,
-          tenantId: null,
-        },
-      });
-    }
-  });
-  console.log('  ✓ super admin (admin@utanstore.com / ChangeMe!SuperAdmin123)');
+  // 3) Super admin — credentials come from the environment. If no password is
+  //    provided, a strong random one is generated and printed ONCE. No secrets
+  //    are hardcoded in source.
+  const superAdminEmail = (process.env.SUPERADMIN_EMAIL ?? 'admin@utanstore.com').toLowerCase();
+  const { plaintext: superAdminPlain, generated: superAdminGenerated } = resolvePassword('SUPERADMIN_PASSWORD');
+  const superAdminPassword = await argon2.hash(superAdminPlain);
+  await prisma.user
+    .upsert({
+      where: { tenantId_email: { tenantId: null as unknown as string, email: superAdminEmail } },
+      update: {},
+      create: { email: superAdminEmail, name: 'Platform Admin', passwordHash: superAdminPassword, role: UserRole.SUPER_ADMIN, tenantId: null },
+    })
+    .catch(async () => {
+      const existing = await prisma.user.findFirst({ where: { email: superAdminEmail, role: UserRole.SUPER_ADMIN } });
+      if (!existing) {
+        await prisma.user.create({
+          data: { email: superAdminEmail, name: 'Platform Admin', passwordHash: superAdminPassword, role: UserRole.SUPER_ADMIN, tenantId: null },
+        });
+      }
+    });
+  console.log(`  ✓ super admin (${superAdminEmail})`);
+  if (superAdminGenerated) {
+    console.log(`    ⚠ generated super-admin password (shown once): ${superAdminPlain}`);
+  }
 
-  // 4) Demo grocery store
+  // 4) Demo grocery store — only when SEED_DEMO=true (skipped in production).
+  if (process.env.SEED_DEMO !== 'true') {
+    console.log('  • demo store skipped (set SEED_DEMO=true to create it)');
+    console.log('Seed complete.');
+    return;
+  }
+
   const groceryTemplate = await prisma.industryTemplate.findUnique({ where: { key: 'grocery.default' } });
   const basicPlan = await prisma.subscriptionPlan.findUnique({ where: { tier: PlanTier.BASIC } });
 
   const existingStore = await prisma.store.findUnique({ where: { slug: 'freshmart' } });
   if (!existingStore) {
-    const ownerPassword = await argon2.hash('ChangeMe!Owner123');
+    const { plaintext: ownerPlain, generated: ownerGenerated } = resolvePassword('DEMO_OWNER_PASSWORD');
+    const ownerPassword = await argon2.hash(ownerPlain);
     const store = await prisma.store.create({
       data: {
         name: 'FreshMart Grocery',
@@ -314,7 +328,10 @@ async function main() {
       data: { tenantId: store.id, name: 'Kochi City', pincode: '682001', feeMinor: 3000, minOrderMinor: 20000 },
     });
 
-    console.log('  ✓ demo store: freshmart.utanstore.com (owner@freshmart.com / ChangeMe!Owner123)');
+    console.log('  ✓ demo store: freshmart.utanstore.com (owner@freshmart.com)');
+    if (ownerGenerated) {
+      console.log(`    ⚠ generated demo owner password (shown once): ${ownerPlain}`);
+    }
   } else {
     console.log('  ✓ demo store already exists');
   }
