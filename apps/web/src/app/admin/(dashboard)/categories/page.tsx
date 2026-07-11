@@ -55,7 +55,7 @@ export default function CategoriesPage() {
             <div className="flex-1"><Input placeholder="New category name" value={name} onChange={(e) => setName(e.target.value)} /></div>
             <Button type="submit">Add</Button>
           </div>
-          <ImageUploader label="Category image (optional)" value={image} onChange={setImage} />
+          <ImageUploader label="Category image (optional)" recommended="400×400" value={image} onChange={setImage} />
         </form>
       </Card>
       <Card>
@@ -72,7 +72,7 @@ export default function CategoriesPage() {
                 <span>{c.name} <span className="text-sm text-slate-400">({c._count?.products ?? 0} products)</span></span>
               </div>
               <div className="flex items-center gap-3">
-                <ImageUploader value={c.imageUrl ? [c.imageUrl] : []} onChange={(urls) => setCategoryImage(c.id, urls[0] ?? null)} />
+                <ImageUploader recommended="400×400" value={c.imageUrl ? [c.imageUrl] : []} onChange={(urls) => setCategoryImage(c.id, urls[0] ?? null)} />
                 <button onClick={() => remove(c.id)} className="text-sm text-red-500">Delete</button>
               </div>
             </li>

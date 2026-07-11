@@ -27,7 +27,7 @@ export default function StoreSettingsPage() {
         <Input label="Store name" value={s.name} onChange={(e) => setS({ ...s, name: e.target.value })} />
         <Input label="WhatsApp number (e.g. 919876543210)" value={s.whatsappNumber ?? ''} onChange={(e) => setS({ ...s, whatsappNumber: e.target.value })} />
         <Input label="Currency" value={s.currency} onChange={(e) => setS({ ...s, currency: e.target.value })} />
-        <ImageUploader label="Store logo" value={s.logoUrl ? [s.logoUrl] : []} onChange={(urls) => setS({ ...s, logoUrl: urls[0] ?? null })} />
+        <ImageUploader label="Store logo" recommended="256×256" value={s.logoUrl ? [s.logoUrl] : []} onChange={(urls) => setS({ ...s, logoUrl: urls[0] ?? null })} />
         <div className="flex items-center gap-3"><Button onClick={save}>Save</Button>{msg && <span className="text-sm text-emerald-600">{msg}</span>}</div>
       </Card>
     </div>

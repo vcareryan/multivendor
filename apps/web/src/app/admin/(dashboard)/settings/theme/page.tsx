@@ -186,7 +186,7 @@ export default function ThemeSettingsPage() {
         {cfg.banners.length === 0 && <p className="text-sm text-slate-400">No banners yet. Add one to show a hero image on your storefront.</p>}
         {cfg.banners.map((b) => (
           <div key={b.id} className="space-y-3 rounded-lg border border-slate-200 p-3">
-            <ImageUploader label="Banner image" value={b.imageUrl ? [b.imageUrl] : []} onChange={(urls) => updateBanner(b.id, { imageUrl: urls[0] ?? '' })} />
+            <ImageUploader label="Banner image" recommended="1200×450" value={b.imageUrl ? [b.imageUrl] : []} onChange={(urls) => updateBanner(b.id, { imageUrl: urls[0] ?? '' })} />
             <div className="grid gap-2 sm:grid-cols-2">
               <Input label="Title" value={b.title ?? ''} onChange={(e) => updateBanner(b.id, { title: e.target.value })} />
               <Input label="Subtitle" value={b.subtitle ?? ''} onChange={(e) => updateBanner(b.id, { subtitle: e.target.value })} />
