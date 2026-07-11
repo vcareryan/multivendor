@@ -1,9 +1,13 @@
-import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
+import type { Response } from 'express';
 import { Industry, PlanTier, StoreStatus } from '@utanstore/db';
 import { UserRole } from '@utanstore/shared';
 import { SuperAdminService } from './super-admin.service';
 import { Roles } from '../../common/decorators';
+import type { TokenPair } from '../auth/token.service';
+import type { Env } from '../../config/env.validation';
 
 /**
  * Super-admin surface. Guarded by @Roles(SUPER_ADMIN); the global JwtAuthGuard
@@ -13,7 +17,10 @@ import { Roles } from '../../common/decorators';
 @Roles(UserRole.SUPER_ADMIN)
 @Controller('super')
 export class SuperAdminController {
-  constructor(private readonly superAdmin: SuperAdminService) {}
+  constructor(
+    private readonly superAdmin: SuperAdminService,
+    private readonly config: ConfigService<Env, true>,
+  ) {}
 
   @Get('stores')
   @ApiOperation({ summary: 'List all stores' })
@@ -41,8 +48,12 @@ export class SuperAdminController {
 
   @Post('stores/:id/impersonate')
   @ApiOperation({ summary: 'Impersonate a store owner (support access, audited)' })
-  impersonate(@Param('id') id: string) {
-    return this.superAdmin.impersonate(id);
+  async impersonate(@Param('id') id: string, @Res({ passthrough: true }) res: Response) {
+    const tokens = await this.superAdmin.impersonate(id);
+    // Set the same httpOnly auth cookies as a normal login so the platform admin
+    // is signed in AS the store owner and can open the store admin dashboard.
+    this.setAuthCookies(res, tokens);
+    return { ok: true, redirectTo: '/admin/dashboard' };
   }
 
   @Get('users')
@@ -61,6 +72,12 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Create / update a subscription plan' })
   upsertPlan(@Param('tier') tier: PlanTier, @Body() body: { name: string; priceMinor: number; currency?: string; interval?: string; limits: object; isActive?: boolean }) {
     return this.superAdmin.upsertPlan(tier, body);
+  }
+
+  @Delete('plans/:tier')
+  @ApiOperation({ summary: 'Delete a subscription plan (blocked if stores use it)' })
+  deletePlan(@Param('tier') tier: PlanTier) {
+    return this.superAdmin.deletePlan(tier);
   }
 
   @Get('templates')
@@ -97,5 +114,13 @@ export class SuperAdminController {
   @ApiOperation({ summary: 'Set a system setting' })
   setSetting(@Param('key') key: string, @Body('value') value: object) {
     return this.superAdmin.setSetting(key, value);
+  }
+
+  private setAuthCookies(res: Response, tokens: TokenPair): void {
+    const isProd = this.config.get('NODE_ENV', { infer: true }) === 'production';
+    const domain = this.config.get('COOKIE_DOMAIN', { infer: true });
+    const common = { httpOnly: true, secure: isProd, sameSite: 'lax' as const, domain: isProd ? domain : undefined, path: '/' };
+    res.cookie('access_token', tokens.accessToken, { ...common, maxAge: tokens.accessTtl * 1000 });
+    res.cookie('refresh_token', tokens.refreshToken, { ...common, maxAge: tokens.refreshTtl * 1000, path: '/api' });
   }
 }

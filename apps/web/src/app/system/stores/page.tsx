@@ -29,6 +29,16 @@ export default function SystemStoresPage() {
 
   async function setStatus(id: string, status: string) { await api.put(`/super/stores/${id}/status`, { status }); await load(); }
 
+  async function accessAdmin(id: string, name: string) {
+    if (!confirm(`Open the admin dashboard for "${name}" as its owner?\n\nYou'll be signed in as that store's owner. To return to the platform panel, log out and log back in as super admin.`)) return;
+    try {
+      await api.post(`/super/stores/${id}/impersonate`);
+      window.location.href = '/admin/dashboard';
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
   return (
     <div>
       <PageHeader title="Stores" action={<Button onClick={() => setOpen(!open)}>New store</Button>} />
@@ -50,7 +60,7 @@ export default function SystemStoresPage() {
       )}
       <Card className="overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="text-slate-500"><tr><th className="py-2">Store</th><th>Industry</th><th>Plan</th><th>Products</th><th>Orders</th><th>Status</th></tr></thead>
+          <thead className="text-slate-500"><tr><th className="py-2">Store</th><th>Industry</th><th>Plan</th><th>Products</th><th>Orders</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
             {rows.map((s) => (
               <tr key={s.id} className="border-t border-slate-100">
@@ -64,9 +74,14 @@ export default function SystemStoresPage() {
                     {['ACTIVE', 'SUSPENDED', 'DISABLED', 'PENDING_SETUP'].map((st) => <option key={st} value={st}>{st}</option>)}
                   </select>
                 </td>
+                <td>
+                  <button onClick={() => accessAdmin(s.id, s.name)} className="rounded-lg border border-emerald-300 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50">
+                    Access admin
+                  </button>
+                </td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={6} className="py-6 text-center text-slate-400">No stores</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-slate-400">No stores</td></tr>}
           </tbody>
         </table>
       </Card>
