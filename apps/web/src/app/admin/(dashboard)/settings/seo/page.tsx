@@ -72,7 +72,7 @@ export default function SeoSettingsPage() {
         <Input label="Meta title (browser tab + Google title)" value={form.metaTitle} onChange={(e) => setForm({ ...form, metaTitle: e.target.value })} placeholder="e.g. Rajesh Shop — Fresh groceries in Kochi" />
         <Textarea label="Meta description (Google snippet, ~155 chars)" value={form.metaDescription} onChange={(e) => setForm({ ...form, metaDescription: e.target.value })} rows={3} />
         <Input label="Keywords (comma separated)" value={form.metaKeywords} onChange={(e) => setForm({ ...form, metaKeywords: e.target.value })} placeholder="groceries, vegetables, home delivery" />
-        <ImageUploader label="Social share image (Open Graph — shown on WhatsApp/Facebook links)" value={form.ogImageUrl ? [form.ogImageUrl] : []} onChange={(urls) => setForm({ ...form, ogImageUrl: urls[0] ?? '' })} />
+        <ImageUploader label="Social share image (Open Graph — shown on WhatsApp/Facebook links)" recommended="1200×630" value={form.ogImageUrl ? [form.ogImageUrl] : []} onChange={(urls) => setForm({ ...form, ogImageUrl: urls[0] ?? '' })} />
       </Card>
 
       <Card className="space-y-3">

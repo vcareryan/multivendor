@@ -123,7 +123,7 @@ export default function ProductsPage() {
             <Input label="SKU" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
             <div className="md:col-span-2"><Textarea label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
             <div className="md:col-span-2">
-              <ImageUploader label="Product images" multiple value={form.images} onChange={(images) => setForm({ ...form, images })} />
+              <ImageUploader label="Product images" multiple recommended="800×800" value={form.images} onChange={(images) => setForm({ ...form, images })} />
             </div>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isFeatured} onChange={(e) => setForm({ ...form, isFeatured: e.target.checked })} /> Featured</label>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> Active</label>
