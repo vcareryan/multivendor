@@ -106,11 +106,25 @@ export class SuperAdminService {
   }
 
   async upsertPlan(tier: PlanTier, data: { name: string; priceMinor: number; currency?: string; interval?: string; limits: object; isActive?: boolean }) {
-    return this.prisma.client.subscriptionPlan.upsert({
+    const plan = await this.prisma.client.subscriptionPlan.upsert({
       where: { tier },
       create: { tier, name: data.name, priceMinor: data.priceMinor, currency: data.currency ?? 'INR', interval: data.interval ?? 'month', limits: data.limits, isActive: data.isActive ?? true },
       update: { name: data.name, priceMinor: data.priceMinor, currency: data.currency, interval: data.interval, limits: data.limits, isActive: data.isActive },
     });
+    await this.audit.record({ action: 'UPDATE', entityType: 'SubscriptionPlan', entityId: plan.id, metadata: { tier } });
+    return plan;
+  }
+
+  async deletePlan(tier: PlanTier) {
+    const plan = await this.prisma.client.subscriptionPlan.findUnique({ where: { tier } });
+    if (!plan) throw new NotFoundException('Plan not found');
+    const inUse = await this.prisma.client.tenantSubscription.count({ where: { planId: plan.id } });
+    if (inUse > 0) {
+      throw new BadRequestException(`Cannot delete: ${inUse} store(s) are on this plan. Move them to another plan first.`);
+    }
+    await this.prisma.client.subscriptionPlan.delete({ where: { tier } });
+    await this.audit.record({ action: 'DELETE', entityType: 'SubscriptionPlan', entityId: plan.id, metadata: { tier } });
+    return { deleted: true };
   }
 
   // ---- Industry templates ----
