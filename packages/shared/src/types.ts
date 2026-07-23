@@ -69,6 +69,13 @@ export interface StorefrontConfig {
     googleSiteVerification: string | null;
     noindex: boolean;
   };
+  info: {
+    about: string | null;
+    address: string | null;
+    email: string | null;
+    phone: string | null;
+    socialLinks: Record<string, string> | null;
+  };
 }
 
 /** Data-driven theme configuration stored per store. */

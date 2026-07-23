@@ -318,6 +318,7 @@ model StoreSetting {
   ogImageUrl      String?
   googleSiteVerification String?
   noindex         Boolean @default(false)
+  about           String?
 
   updatedAt DateTime @updatedAt
 
