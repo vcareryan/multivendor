@@ -3,6 +3,7 @@ import { apiServer } from '@/lib/api';
 import type { StorefrontConfig } from '@utanstore/shared';
 import { ThemeStyle } from '@/themes/theme-provider';
 import { Header } from '@/components/storefront/Header';
+import { BottomNav } from '@/components/storefront/BottomNav';
 import { PlatformLanding } from '@/components/storefront/PlatformLanding';
 
 export const dynamic = 'force-dynamic';
@@ -54,11 +55,12 @@ export default async function StorefrontLayout({ children }: { children: React.R
       <ThemeStyle theme={config.theme} />
       <div className="min-h-screen">
         <Header storeName={config.store.name} logoUrl={config.store.logoUrl} />
-        <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
-        <footer className="mt-12 border-t border-black/5 py-8 text-center text-sm text-[rgb(var(--color-muted))]">
+        <main className="mx-auto max-w-6xl px-4 py-5 pb-24 md:pb-8">{children}</main>
+        <footer className="border-t border-black/5 py-8 text-center text-sm text-[rgb(var(--color-muted))]">
           <p>{config.store.name}</p>
           <p className="mt-1">Developed By Income inn Technologies</p>
         </footer>
+        <BottomNav />
       </div>
     </>
   );

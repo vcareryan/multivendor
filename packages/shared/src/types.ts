@@ -80,6 +80,8 @@ export interface ThemeConfig {
     accent: string;
     surface: string;
     muted: string;
+    bg?: string; // page background (enables dark storefronts)
+    fg?: string; // page foreground / text
   };
   fonts: {
     heading: string;
