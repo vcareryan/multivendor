@@ -16,6 +16,9 @@ module.exports = {
         accent: 'rgb(var(--color-accent) / <alpha-value>)',
         surface: 'rgb(var(--color-surface) / <alpha-value>)',
         muted: 'rgb(var(--color-muted) / <alpha-value>)',
+        // Page background + foreground (enables dark storefronts)
+        bg: 'rgb(var(--color-bg) / <alpha-value>)',
+        fg: 'rgb(var(--color-fg) / <alpha-value>)',
       },
       fontFamily: {
         heading: 'var(--font-heading, ui-sans-serif, system-ui)',

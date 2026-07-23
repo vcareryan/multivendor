@@ -10,7 +10,7 @@ interface Template { id: string; name: string; industry: string; isPremium: bool
 
 const DEFAULTS: ThemeConfig = {
   layoutVariant: 'general.default',
-  colors: { brand: '22 163 74', brandFg: '255 255 255', accent: '234 88 12', surface: '255 255 255', muted: '100 116 139' },
+  colors: { brand: '22 163 74', brandFg: '255 255 255', accent: '234 88 12', surface: '255 255 255', muted: '100 116 139', bg: '248 250 252', fg: '15 23 42' },
   fonts: { heading: 'Inter', body: 'Inter' },
   radius: '0.5rem',
   banners: [],
@@ -106,6 +106,16 @@ export default function ThemeSettingsPage() {
   function setFeature(key: keyof ThemeConfig['features'], value: boolean) {
     setCfg((c) => (c ? { ...c, features: { ...c.features, [key]: value } } : c));
   }
+  function applyPreset(kind: 'light' | 'dark') {
+    setCfg((c) => {
+      if (!c) return c;
+      const colors =
+        kind === 'dark'
+          ? { ...c.colors, bg: '15 23 42', fg: '241 245 249', surface: '30 41 59', muted: '148 163 184', brandFg: '255 255 255' }
+          : { ...c.colors, bg: '248 250 252', fg: '15 23 42', surface: '255 255 255', muted: '100 116 139', brandFg: '255 255 255' };
+      return { ...c, colors };
+    });
+  }
 
   // --- Banners ---
   function addBanner() {
@@ -161,12 +171,21 @@ export default function ThemeSettingsPage() {
         </Select>
       </Card>
 
-      <Card className="grid gap-3 sm:grid-cols-2">
-        <ColorField label="Brand color" value={cfg.colors.brand} onChange={(v) => setColor('brand', v)} />
-        <ColorField label="Brand text (on brand)" value={cfg.colors.brandFg} onChange={(v) => setColor('brandFg', v)} />
-        <ColorField label="Accent color" value={cfg.colors.accent} onChange={(v) => setColor('accent', v)} />
-        <ColorField label="Surface (cards)" value={cfg.colors.surface} onChange={(v) => setColor('surface', v)} />
-        <ColorField label="Muted text" value={cfg.colors.muted} onChange={(v) => setColor('muted', v)} />
+      <Card className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-slate-700">Quick palette:</span>
+          <Button variant="outline" onClick={() => applyPreset('light')}>Light</Button>
+          <Button variant="outline" onClick={() => applyPreset('dark')}>Dark (app style)</Button>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <ColorField label="Brand color" value={cfg.colors.brand} onChange={(v) => setColor('brand', v)} />
+          <ColorField label="Brand text (on brand)" value={cfg.colors.brandFg} onChange={(v) => setColor('brandFg', v)} />
+          <ColorField label="Accent color" value={cfg.colors.accent} onChange={(v) => setColor('accent', v)} />
+          <ColorField label="Page background" value={cfg.colors.bg ?? '248 250 252'} onChange={(v) => setColor('bg', v)} />
+          <ColorField label="Page text" value={cfg.colors.fg ?? '15 23 42'} onChange={(v) => setColor('fg', v)} />
+          <ColorField label="Surface (cards)" value={cfg.colors.surface} onChange={(v) => setColor('surface', v)} />
+          <ColorField label="Muted text" value={cfg.colors.muted} onChange={(v) => setColor('muted', v)} />
+        </div>
       </Card>
 
       <Card className="space-y-1">

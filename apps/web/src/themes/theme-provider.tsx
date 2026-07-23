@@ -14,6 +14,8 @@ export function ThemeStyle({ theme }: { theme: Partial<ThemeConfig> }) {
   if (c?.accent) vars.push(`--color-accent:${c.accent}`);
   if (c?.surface) vars.push(`--color-surface:${c.surface}`);
   if (c?.muted) vars.push(`--color-muted:${c.muted}`);
+  if (c?.bg) vars.push(`--color-bg:${c.bg}`);
+  if (c?.fg) vars.push(`--color-fg:${c.fg}`);
   if (f?.heading) vars.push(`--font-heading:'${f.heading}', ui-sans-serif, system-ui, sans-serif`);
   if (f?.body) vars.push(`--font-body:'${f.body}', ui-sans-serif, system-ui, sans-serif`);
   if (theme.radius) vars.push(`--radius-theme:${theme.radius}`);
