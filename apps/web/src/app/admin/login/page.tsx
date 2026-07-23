@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { api } from '@/lib/api-client';
 
 export default function AdminLoginPage() {
@@ -45,9 +44,6 @@ export default function AdminLoginPage() {
         <button disabled={loading} className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 font-medium text-white disabled:opacity-50">
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
-        <p className="text-center text-sm text-slate-500">
-          No store yet? <Link href="/admin/register" className="text-emerald-600">Create one</Link>
-        </p>
       </form>
     </div>
   );

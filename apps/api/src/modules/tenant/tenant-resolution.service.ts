@@ -91,6 +91,30 @@ export class TenantResolutionService {
     return host;
   }
 
+  /**
+   * Look up a store's status for a host WITHOUT the ACTIVE filter, so the
+   * storefront can show a status-specific "unavailable" message (suspended /
+   * pending / disabled). Returns null for platform/unknown hosts.
+   */
+  async resolveStatus(rawHost: string): Promise<{ status: string; name: string } | null> {
+    const host = this.normalizeHost(rawHost);
+    if (!host) return null;
+    return runBypassingRls(async () => {
+      const suffix = `.${this.baseDomain}`;
+      if (host.endsWith(suffix)) {
+        const slug = host.slice(0, -suffix.length);
+        if (!slug || slug.includes('.')) return null;
+        const store = await this.prisma.client.store.findFirst({ where: { slug }, select: { status: true, name: true } });
+        return store ? { status: store.status as string, name: store.name } : null;
+      }
+      const domain = await this.prisma.client.domain.findFirst({
+        where: { hostname: host },
+        include: { store: { select: { status: true, name: true } } },
+      });
+      return domain?.store ? { status: domain.store.status as string, name: domain.store.name } : null;
+    });
+  }
+
   /** Invalidate the host cache (call when a domain is added/verified/removed). */
   async invalidate(host: string): Promise<void> {
     await this.redis.del(`tenant:host:${host.toLowerCase()}`).catch(() => undefined);

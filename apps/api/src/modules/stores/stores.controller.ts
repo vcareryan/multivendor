@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Put, Req, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
 import {
   checkoutSettingsSchema,
   customerAuthSettingsSchema,
@@ -8,6 +9,7 @@ import {
   type CustomerAuthSettingsInput,
 } from '@utanstore/shared';
 import { StoresService } from './stores.service';
+import { TenantResolutionService } from '../tenant/tenant-resolution.service';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { Roles, Public } from '../../common/decorators';
 import { TenantGuard } from '../../common/guards/tenant.guard';
@@ -19,6 +21,7 @@ export class StoresController {
   constructor(
     private readonly stores: StoresService,
     private readonly audit: AuditLogService,
+    private readonly tenantResolution: TenantResolutionService,
   ) {}
 
   // ---- Storefront (public) ----
@@ -27,6 +30,18 @@ export class StoresController {
   @ApiOperation({ summary: 'Public storefront configuration (store + theme + checkout)' })
   config() {
     return this.stores.getStorefrontConfig();
+  }
+
+  @Public()
+  @Get('store/availability')
+  @ApiOperation({ summary: 'Store status for a host (used to render suspended / coming-soon pages)' })
+  availability(@Req() req: Request) {
+    const host =
+      (req.headers['x-store-host'] as string) ||
+      (req.headers['x-forwarded-host'] as string) ||
+      req.headers.host ||
+      '';
+    return this.tenantResolution.resolveStatus(host);
   }
 
   @Public()

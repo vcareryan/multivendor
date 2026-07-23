@@ -6,6 +6,7 @@ import { Header } from '@/components/storefront/Header';
 import { BottomNav } from '@/components/storefront/BottomNav';
 import { Toaster } from '@/components/storefront/Toaster';
 import { PlatformLanding } from '@/components/storefront/PlatformLanding';
+import { StoreUnavailable } from '@/components/storefront/StoreUnavailable';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,8 +47,13 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function StorefrontLayout({ children }: { children: React.ReactNode }) {
   const config = await getConfig();
 
-  // No tenant resolved for this host → show the platform landing page.
+  // No active store for this host. Either the store exists but is suspended/
+  // pending/disabled (→ status page), or it's the platform/unknown host (→ landing).
   if (!config) {
+    const availability = await apiServer<{ status: string; name: string } | null>('/store/availability').catch(() => null);
+    if (availability && availability.status && availability.status !== 'ACTIVE') {
+      return <StoreUnavailable status={availability.status} name={availability.name} />;
+    }
     return <PlatformLanding />;
   }
 
