@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useToast } from './toast-store';
 
 export interface CartItem {
   productId: string;
@@ -30,7 +31,7 @@ export const useCart = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
-      add: (item, qty = 1) =>
+      add: (item, qty = 1) => {
         set((state) => {
           const key = itemKey(item);
           const existing = state.items.find((i) => itemKey(i) === key);
@@ -38,7 +39,10 @@ export const useCart = create<CartState>()(
             return { items: state.items.map((i) => (itemKey(i) === key ? { ...i, quantity: i.quantity + qty } : i)) };
           }
           return { items: [...state.items, { ...item, quantity: qty }] };
-        }),
+        });
+        // Fire-and-forget UI feedback (no coupling for callers).
+        useToast.getState().show(`${item.name} added to cart`, item.imageUrl);
+      },
       setQty: (key, qty) =>
         set((state) => ({
           items: qty <= 0 ? state.items.filter((i) => itemKey(i) !== key) : state.items.map((i) => (itemKey(i) === key ? { ...i, quantity: qty } : i)),
