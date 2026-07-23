@@ -4,6 +4,7 @@ import type { StorefrontConfig } from '@utanstore/shared';
 import { ThemeStyle } from '@/themes/theme-provider';
 import { Header } from '@/components/storefront/Header';
 import { BottomNav } from '@/components/storefront/BottomNav';
+import { Toaster } from '@/components/storefront/Toaster';
 import { PlatformLanding } from '@/components/storefront/PlatformLanding';
 
 export const dynamic = 'force-dynamic';
@@ -61,6 +62,7 @@ export default async function StorefrontLayout({ children }: { children: React.R
           <p className="mt-1">Developed By Income inn Technologies</p>
         </footer>
         <BottomNav />
+        <Toaster />
       </div>
     </>
   );

@@ -33,7 +33,7 @@ export function Header({ storeName, logoUrl }: { storeName: string; logoUrl?: st
           <Link href="/cart" aria-label="Cart" className="relative flex h-9 w-9 items-center justify-center rounded-full hover:bg-black/5">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="20" r="1.4" /><circle cx="18" cy="20" r="1.4" /><path d="M2 3h3l2.4 12.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L22 7H6" /></svg>
             {mounted && count > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-xs text-white">
+              <span key={count} className="animate-pop absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-xs text-white">
                 {count}
               </span>
             )}

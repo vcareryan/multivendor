@@ -44,7 +44,7 @@ export function BottomNav() {
               <span className="relative">
                 {t.icon}
                 {t.badge && mounted && count > 0 && (
-                  <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] text-white">
+                  <span key={count} className="animate-pop absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] text-white">
                     {count}
                   </span>
                 )}
