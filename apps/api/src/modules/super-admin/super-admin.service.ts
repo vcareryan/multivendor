@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { Industry, PlanTier, StoreStatus, UserRole } from '@utanstore/db';
 import * as argon2 from 'argon2';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RedisService } from '../../redis/redis.service';
 import { parsePage, buildListResponse } from '../../common/utils/pagination';
 import { slugify } from '../../common/utils/slug';
 import { TokenService } from '../auth/token.service';
@@ -18,6 +19,7 @@ export class SuperAdminService {
     private readonly prisma: PrismaService,
     private readonly tokens: TokenService,
     private readonly audit: AuditLogService,
+    private readonly redis: RedisService,
   ) {}
 
   // ---- Stores ----
@@ -80,9 +82,18 @@ export class SuperAdminService {
   }
 
   async setStoreStatus(id: string, status: StoreStatus) {
-    await this.getStore(id);
+    const store = await this.prisma.client.store.findUnique({ where: { id }, include: { domains: true } });
+    if (!store) throw new NotFoundException('Store not found');
     const updated = await this.prisma.client.store.update({ where: { id }, data: { status } });
     await this.audit.record({ action: 'UPDATE', entityType: 'Store', entityId: id, metadata: { status }, tenantId: id });
+
+    // Invalidate the cached host→tenant resolution so the new status takes
+    // effect immediately (otherwise a store stays visible/hidden for ~60s).
+    const baseDomain = process.env.APP_BASE_DOMAIN ?? 'utanstore.com';
+    const hosts = new Set<string>([`${store.slug}.${baseDomain}`, ...store.domains.map((d) => d.hostname)]);
+    await Promise.all(
+      [...hosts].map((h) => this.redis.del(`tenant:host:${h.toLowerCase()}`).catch(() => undefined)),
+    );
     return updated;
   }
 
