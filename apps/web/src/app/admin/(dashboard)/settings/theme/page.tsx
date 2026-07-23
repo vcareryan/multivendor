@@ -10,7 +10,7 @@ interface Template { id: string; name: string; industry: string; isPremium: bool
 
 const DEFAULTS: ThemeConfig = {
   layoutVariant: 'general.default',
-  colors: { brand: '22 163 74', brandFg: '255 255 255', accent: '234 88 12', surface: '255 255 255', muted: '100 116 139', bg: '248 250 252', fg: '15 23 42' },
+  colors: { brand: '22 163 74', brandFg: '255 255 255', accent: '234 88 12', surface: '255 255 255', muted: '100 116 139', bg: '248 250 252', fg: '15 23 42', navBg: '255 255 255', navActive: '22 163 74', navInactive: '100 116 139' },
   fonts: { heading: 'Inter', body: 'Inter' },
   radius: '0.5rem',
   banners: [],
@@ -111,8 +111,8 @@ export default function ThemeSettingsPage() {
       if (!c) return c;
       const colors =
         kind === 'dark'
-          ? { ...c.colors, bg: '15 23 42', fg: '241 245 249', surface: '30 41 59', muted: '148 163 184', brandFg: '255 255 255' }
-          : { ...c.colors, bg: '248 250 252', fg: '15 23 42', surface: '255 255 255', muted: '100 116 139', brandFg: '255 255 255' };
+          ? { ...c.colors, bg: '15 23 42', fg: '241 245 249', surface: '30 41 59', muted: '148 163 184', brandFg: '255 255 255', navBg: '30 41 59', navActive: '255 255 255', navInactive: '148 163 184' }
+          : { ...c.colors, bg: '248 250 252', fg: '15 23 42', surface: '255 255 255', muted: '100 116 139', brandFg: '255 255 255', navBg: '255 255 255', navActive: '22 163 74', navInactive: '100 116 139' };
       return { ...c, colors };
     });
   }
@@ -185,6 +185,18 @@ export default function ThemeSettingsPage() {
           <ColorField label="Page text" value={cfg.colors.fg ?? '15 23 42'} onChange={(v) => setColor('fg', v)} />
           <ColorField label="Surface (cards)" value={cfg.colors.surface} onChange={(v) => setColor('surface', v)} />
           <ColorField label="Muted text" value={cfg.colors.muted} onChange={(v) => setColor('muted', v)} />
+        </div>
+      </Card>
+
+      <Card className="space-y-3">
+        <div>
+          <h2 className="font-medium text-slate-800">Mobile bottom navigation</h2>
+          <p className="text-xs text-slate-400">Colors for the app-style bar (Home / Shop / Cart) on phones. Pick colors that contrast with the bar background.</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <ColorField label="Nav bar background" value={cfg.colors.navBg ?? '255 255 255'} onChange={(v) => setColor('navBg', v)} />
+          <ColorField label="Active icon / label" value={cfg.colors.navActive ?? cfg.colors.brand} onChange={(v) => setColor('navActive', v)} />
+          <ColorField label="Inactive icon / label" value={cfg.colors.navInactive ?? cfg.colors.muted} onChange={(v) => setColor('navInactive', v)} />
         </div>
       </Card>
 

@@ -82,6 +82,9 @@ export interface ThemeConfig {
     muted: string;
     bg?: string; // page background (enables dark storefronts)
     fg?: string; // page foreground / text
+    navBg?: string; // mobile bottom-nav background
+    navActive?: string; // mobile bottom-nav active icon/label
+    navInactive?: string; // mobile bottom-nav inactive icon/label
   };
   fonts: {
     heading: string;

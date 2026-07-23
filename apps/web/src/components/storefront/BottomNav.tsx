@@ -31,7 +31,7 @@ export function BottomNav() {
   useEffect(() => setMounted(true), []);
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-[rgb(var(--color-surface))] pb-[env(safe-area-inset-bottom)] md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-[rgb(var(--color-nav-bg,var(--color-surface)))] shadow-[0_-2px_12px_rgba(0,0,0,0.08)] pb-[env(safe-area-inset-bottom)] md:hidden">
       <div className="mx-auto flex max-w-md items-stretch justify-around">
         {TABS.map((t) => {
           const active = t.href === '/' ? pathname === '/' : pathname.startsWith(t.href);
@@ -39,7 +39,7 @@ export function BottomNav() {
             <Link
               key={t.href}
               href={t.href}
-              className={`relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium ${active ? 'text-brand' : 'text-[rgb(var(--color-muted))]'}`}
+              className={`relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] font-medium ${active ? 'text-[rgb(var(--color-nav-active,var(--color-brand)))]' : 'text-[rgb(var(--color-nav-inactive,var(--color-muted)))]'}`}
             >
               <span className="relative">
                 {t.icon}
