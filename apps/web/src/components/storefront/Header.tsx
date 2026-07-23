@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useCart } from '@/lib/cart-store';
 import { InstallButton } from '@/components/pwa/InstallButton';
+import { NavDrawer, NAV_LINKS } from '@/components/storefront/NavDrawer';
 
 export function Header({ storeName, logoUrl }: { storeName: string; logoUrl?: string | null }) {
   const count = useCart((s) => s.count());
@@ -13,17 +14,29 @@ export function Header({ storeName, logoUrl }: { storeName: string; logoUrl?: st
   return (
     <header className="sticky top-0 z-30 border-b border-black/5 bg-[rgb(var(--color-surface))]/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-        <Link href="/" className="flex items-center gap-2">
-          {logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoUrl} alt={storeName} className="h-8 w-8 rounded-full object-cover" />
-          ) : (
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand font-bold text-brand-fg">
-              {storeName.charAt(0)}
-            </span>
-          )}
-          <span className="font-heading text-lg font-semibold">{storeName}</span>
-        </Link>
+        <div className="flex items-center gap-1.5">
+          <NavDrawer storeName={storeName} logoUrl={logoUrl} />
+          <Link href="/" className="flex items-center gap-2">
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt={storeName} className="h-8 w-8 rounded-full object-cover" />
+            ) : (
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand font-bold text-brand-fg">
+                {storeName.charAt(0)}
+              </span>
+            )}
+            <span className="font-heading text-lg font-semibold">{storeName}</span>
+          </Link>
+        </div>
+
+        {/* Desktop nav links */}
+        <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
+          {NAV_LINKS.map((l) => (
+            <Link key={l.href} href={l.href} className="hover:text-brand">
+              {l.label}
+            </Link>
+          ))}
+        </nav>
 
         <div className="flex items-center gap-1.5">
           <InstallButton className="hidden sm:inline-flex" />

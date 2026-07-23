@@ -60,6 +60,13 @@ export class StoresService {
         googleSiteVerification: s?.googleSiteVerification ?? null,
         noindex: s?.noindex ?? false,
       },
+      info: {
+        about: s?.about ?? null,
+        address: [s?.address, s?.city, s?.state, s?.pincode].filter(Boolean).join(', ') || null,
+        email: s?.contactEmail ?? null,
+        phone: s?.contactPhone ?? null,
+        socialLinks: (s?.socialLinks as Record<string, string> | null) ?? null,
+      },
     };
   }
 

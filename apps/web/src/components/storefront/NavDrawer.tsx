@@ -1,0 +1,78 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+
+export const NAV_LINKS = [
+  { href: '/', label: 'Home' },
+  { href: '/search', label: 'Shop' },
+  { href: '/about', label: 'About Us' },
+  { href: '/contact', label: 'Contact Us' },
+];
+
+/** Mobile hamburger + left slide-in drawer menu. */
+export function NavDrawer({ storeName, logoUrl }: { storeName: string; logoUrl?: string | null }) {
+  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+
+  useEffect(() => setOpen(false), [pathname]); // close on navigation
+  useEffect(() => {
+    document.body.style.overflow = open ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Open menu"
+        className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-black/5 md:hidden"
+      >
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
+      </button>
+
+      <div className={`fixed inset-0 z-50 md:hidden ${open ? '' : 'pointer-events-none'}`} aria-hidden={!open}>
+        <div
+          onClick={() => setOpen(false)}
+          className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`}
+        />
+        <div
+          className={`absolute left-0 top-0 h-full w-72 max-w-[80%] bg-[rgb(var(--color-surface))] text-[rgb(var(--color-fg))] shadow-xl transition-transform duration-200 ${open ? 'translate-x-0' : '-translate-x-full'}`}
+        >
+          <div className="flex items-center justify-between border-b border-black/10 p-4">
+            <div className="flex items-center gap-2">
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt={storeName} className="h-8 w-8 rounded-full object-cover" />
+              ) : (
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand font-bold text-brand-fg">{storeName.charAt(0)}</span>
+              )}
+              <span className="font-heading font-semibold">{storeName}</span>
+            </div>
+            <button type="button" onClick={() => setOpen(false)} aria-label="Close menu" className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-black/5">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+            </button>
+          </div>
+          <nav className="flex flex-col p-2">
+            {NAV_LINKS.map((l) => {
+              const active = l.href === '/' ? pathname === '/' : pathname.startsWith(l.href);
+              return (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className={`rounded-lg px-3 py-3 text-sm font-medium ${active ? 'bg-brand/10 text-brand' : 'hover:bg-black/5'}`}
+                >
+                  {l.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+      </div>
+    </>
+  );
+}
