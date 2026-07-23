@@ -26,6 +26,11 @@ export function middleware(req: NextRequest) {
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set('x-store-host', host);
 
+  // Self-serve registration is disabled — only the super admin creates stores.
+  if (path === '/admin/register' || path.startsWith('/admin/register/')) {
+    return NextResponse.redirect(new URL('/admin/login', `https://${SUPERADMIN_HOST}`), 307);
+  }
+
   const isAdminArea =
     path === '/admin' || path.startsWith('/admin/') || path === '/system' || path.startsWith('/system/');
 
