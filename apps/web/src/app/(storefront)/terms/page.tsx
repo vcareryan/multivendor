@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import { apiServer } from '@/lib/api';
 import { LegalArticle } from '@/components/storefront/LegalArticle';
 
@@ -10,6 +9,8 @@ interface Legal { privacy: string | null; terms: string | null; refund: string |
 
 export default async function TermsPage() {
   const legal = await apiServer<Legal>('/store/legal').catch(() => null);
-  if (!legal?.terms) notFound();
+  if (!legal?.terms) {
+    return <p className="mx-auto max-w-2xl py-12 text-center text-[rgb(var(--color-muted))]">This page is not available.</p>;
+  }
   return <LegalArticle title="Terms & Conditions" content={legal.terms} />;
 }
