@@ -1,16 +1,14 @@
-import { Body, Controller, Get, Post, Put, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, Post, Put, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import {
   changePasswordSchema,
   loginSchema,
-  registerSchema,
   updateProfileSchema,
   type ChangePasswordInput,
   type JwtPayload,
   type LoginInput,
-  type RegisterInput,
   type UpdateProfileInput,
 } from '@utanstore/shared';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -28,17 +26,14 @@ export class AuthController {
     private readonly config: ConfigService<Env, true>,
   ) {}
 
+  // NOTE: self-serve store registration is intentionally disabled. Stores are
+  // created and shared by the super admin (POST /super/stores). The endpoint is
+  // kept as a guarded 403 so any leftover client call fails safely.
   @Public()
   @Post('register')
-  @ApiOperation({ summary: 'Register a new store and owner account' })
-  async register(
-    @Body(new ZodValidationPipe(registerSchema)) dto: RegisterInput,
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    const result = await this.auth.register(dto, this.meta(req));
-    this.setAuthCookies(res, result.tokens);
-    return { storeId: result.storeId, slug: result.slug };
+  @ApiOperation({ summary: 'Disabled — stores are created by the super admin' })
+  register(): never {
+    throw new ForbiddenException('Self-serve registration is disabled. Please contact the platform administrator.');
   }
 
   @Public()

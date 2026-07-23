@@ -3,8 +3,8 @@
  * output, icons) so the app is installable and repeat loads are fast, WITHOUT
  * ever serving stale HTML or API responses (which are multi-tenant and dynamic).
  */
-const CACHE = 'store-static-v1';
-const STATIC_PATHS = ['/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
+const CACHE = 'store-static-v2';
+const STATIC_PATHS = ['/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
