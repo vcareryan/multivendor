@@ -48,7 +48,9 @@ export class TenantResolutionService {
         // dataloader, and the batched query escapes the per-op RLS-bypass
         // transaction set by the tenant-aware client extension.
         const store = await this.prisma.client.store.findFirst({ where: { slug } });
-        if (store && store.status !== 'DISABLED') {
+        // Only ACTIVE stores are publicly visible; SUSPENDED / DISABLED /
+        // PENDING_SETUP fall through to the "store unavailable" landing.
+        if (store && store.status === 'ACTIVE') {
           return this.toContext(store, host);
         }
         return null;
@@ -59,7 +61,7 @@ export class TenantResolutionService {
         where: { hostname: host },
         include: { store: true },
       });
-      if (domain && domain.status === DomainStatus.VERIFIED && domain.store.status !== 'DISABLED') {
+      if (domain && domain.status === DomainStatus.VERIFIED && domain.store.status === 'ACTIVE') {
         return this.toContext(domain.store, host);
       }
       return null;
