@@ -5,6 +5,8 @@ import { api } from '@/lib/api-client';
 import { Button, Card, Input, PageHeader, Select } from '@/components/admin/ui';
 import { INDUSTRY_LABELS } from '@utanstore/shared';
 
+const BASE_DOMAIN = process.env.NEXT_PUBLIC_BASE_DOMAIN ?? 'utanshop.com';
+
 interface Store { id: string; name: string; slug: string; status: string; industry: string; subscription?: { plan: { tier: string } } | null; _count?: { products: number; orders: number } }
 
 export default function SystemStoresPage() {
@@ -64,7 +66,13 @@ export default function SystemStoresPage() {
           <tbody>
             {rows.map((s) => (
               <tr key={s.id} className="border-t border-slate-100">
-                <td className="py-2 font-medium">{s.name}<br /><span className="text-xs text-slate-400">{s.slug}.utanstore.com</span></td>
+                <td className="py-2 font-medium">
+                  {s.name}
+                  <br />
+                  <a href={`https://${s.slug}.${BASE_DOMAIN}`} target="_blank" rel="noopener noreferrer" className="text-xs text-emerald-600 hover:underline">
+                    {s.slug}.{BASE_DOMAIN} ↗
+                  </a>
+                </td>
                 <td>{s.industry}</td>
                 <td>{s.subscription?.plan.tier ?? '—'}</td>
                 <td>{s._count?.products ?? 0}</td>
