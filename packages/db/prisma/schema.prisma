@@ -319,6 +319,10 @@ model StoreSetting {
   googleSiteVerification String?
   noindex         Boolean @default(false)
   about           String?
+  showPolicies    Boolean @default(false)
+  privacyPolicy   String?
+  termsConditions String?
+  refundPolicy    String?
 
   updatedAt DateTime @updatedAt
 

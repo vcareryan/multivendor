@@ -76,6 +76,12 @@ export interface StorefrontConfig {
     phone: string | null;
     socialLinks: Record<string, string> | null;
   };
+  legal: {
+    enabled: boolean; // show policy pages (typically for payment-gateway stores)
+    privacy: boolean; // content exists
+    terms: boolean;
+    refund: boolean;
+  };
 }
 
 /** Data-driven theme configuration stored per store. */
