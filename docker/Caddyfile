@@ -12,28 +12,31 @@
 
 # ─────────────────────────────────────────────────────────────
 # Platform hosts (*.{$APP_BASE_DOMAIN}) are served BEHIND Cloudflare.
-# Caddy presents an INTERNAL (self-signed) certificate, which Cloudflare accepts
-# in SSL/TLS mode "Full". There is no public ACME here, so certificate issuance
-# can never fail behind Cloudflare's proxy — every store (and every new store)
-# works instantly. Cloudflare provides the real public HTTPS, CDN and WAF.
+# Caddy presents a CLOUDFLARE ORIGIN CERTIFICATE (mounted at /etc/caddy/certs),
+# which Cloudflare trusts in SSL/TLS mode "Full (Strict)" — so the Cloudflare↔
+# origin leg is both encrypted AND authenticated (no MITM gap). No public ACME
+# here, so issuance can never fail behind Cloudflare's proxy — every store works
+# instantly. Cloudflare provides the real public HTTPS, CDN and WAF.
 #
-# IMPORTANT: set Cloudflare SSL/TLS mode to "Full" (NOT "Full (strict)" — strict
-# would reject the self-signed origin cert).
+# SETUP (one-time): create an Origin Certificate in Cloudflare (SSL/TLS → Origin
+# Server) for `utanshop.com, *.utanshop.com`, save the cert as origin.pem and the
+# key as origin.key in ./docker/certs/, then set Cloudflare SSL mode to
+# "Full (Strict)".
 # ─────────────────────────────────────────────────────────────
 api.{$APP_BASE_DOMAIN} {
-	tls internal
+	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
 	reverse_proxy api:4000
 }
 
 {$APP_BASE_DOMAIN}, www.{$APP_BASE_DOMAIN} {
-	tls internal
+	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
 	encode zstd gzip
 	reverse_proxy web:3000
 }
 
 # Store subdomains (<slug>.{$APP_BASE_DOMAIN}) + admin.{$APP_BASE_DOMAIN}
 *.{$APP_BASE_DOMAIN} {
-	tls internal
+	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
 	encode zstd gzip
 	reverse_proxy web:3000
 }

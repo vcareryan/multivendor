@@ -35,6 +35,8 @@ Thumbs.db
 
 # Docker/runtime volumes
 docker/volumes/
+# Cloudflare Origin Certificate + key (created on the server, never committed)
+docker/certs/
 minio-data/
 postgres-data/
 redis-data/

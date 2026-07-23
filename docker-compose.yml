@@ -120,5 +120,6 @@ services:
       ACME_EMAIL: ${ACME_EMAIL:-admin@utanstore.com}
     volumes:
       - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./docker/certs:/etc/caddy/certs:ro
       - ./docker/volumes/caddy-data:/data
       - ./docker/volumes/caddy-config:/config
