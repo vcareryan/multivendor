@@ -67,6 +67,24 @@ export class StoresService {
         phone: s?.contactPhone ?? null,
         socialLinks: (s?.socialLinks as Record<string, string> | null) ?? null,
       },
+      legal: {
+        enabled: s?.showPolicies ?? false,
+        privacy: !!(s?.showPolicies && s?.privacyPolicy),
+        terms: !!(s?.showPolicies && s?.termsConditions),
+        refund: !!(s?.showPolicies && s?.refundPolicy),
+      },
+    };
+  }
+
+  /** Public legal/policy page content (only when the store enabled policies). */
+  async getLegal(): Promise<{ privacy: string | null; terms: string | null; refund: string | null }> {
+    const store = await this.prisma.client.store.findFirst({ include: { settings: true } });
+    const s = store?.settings;
+    if (!s?.showPolicies) return { privacy: null, terms: null, refund: null };
+    return {
+      privacy: s.privacyPolicy ?? null,
+      terms: s.termsConditions ?? null,
+      refund: s.refundPolicy ?? null,
     };
   }
 

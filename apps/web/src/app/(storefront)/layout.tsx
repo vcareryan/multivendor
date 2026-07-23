@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { apiServer } from '@/lib/api';
 import type { StorefrontConfig } from '@utanstore/shared';
 import { ThemeStyle } from '@/themes/theme-provider';
@@ -57,13 +58,28 @@ export default async function StorefrontLayout({ children }: { children: React.R
     return <PlatformLanding />;
   }
 
+  const legalLinks = [
+    config.legal?.privacy && { href: '/privacy', label: 'Privacy Policy' },
+    config.legal?.terms && { href: '/terms', label: 'Terms & Conditions' },
+    config.legal?.refund && { href: '/refund', label: 'Refund & Returns' },
+  ].filter(Boolean) as { href: string; label: string }[];
+
   return (
     <>
       <ThemeStyle theme={config.theme} />
       <div className="min-h-screen">
-        <Header storeName={config.store.name} logoUrl={config.store.logoUrl} />
+        <Header storeName={config.store.name} logoUrl={config.store.logoUrl} menuLinks={legalLinks} />
         <main className="mx-auto max-w-6xl px-4 py-5 pb-24 md:pb-8">{children}</main>
         <footer className="border-t border-black/5 py-8 text-center text-sm text-[rgb(var(--color-muted))]">
+          {legalLinks.length > 0 && (
+            <nav className="mb-3 flex flex-wrap justify-center gap-x-4 gap-y-1">
+              {legalLinks.map((l) => (
+                <Link key={l.href} href={l.href} className="hover:text-brand">
+                  {l.label}
+                </Link>
+              ))}
+            </nav>
+          )}
           <p>{config.store.name}</p>
           <p className="mt-1">Developed By Income inn Technologies</p>
         </footer>

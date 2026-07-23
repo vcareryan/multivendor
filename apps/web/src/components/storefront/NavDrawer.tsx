@@ -13,7 +13,15 @@ export const NAV_LINKS = [
 ];
 
 /** Mobile hamburger + left slide-in drawer menu. */
-export function NavDrawer({ storeName, logoUrl }: { storeName: string; logoUrl?: string | null }) {
+export function NavDrawer({
+  storeName,
+  logoUrl,
+  extraLinks = [],
+}: {
+  storeName: string;
+  logoUrl?: string | null;
+  extraLinks?: { href: string; label: string }[];
+}) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
@@ -68,6 +76,19 @@ export function NavDrawer({ storeName, logoUrl }: { storeName: string; logoUrl?:
               </Link>
             );
           })}
+          {extraLinks.length > 0 && (
+            <div className="mt-2 border-t border-black/10 pt-2">
+              {extraLinks.map((l) => (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className={`block rounded-lg px-3 py-2.5 text-sm ${pathname.startsWith(l.href) ? 'text-brand' : 'text-[rgb(var(--color-muted))] hover:bg-black/5'}`}
+                >
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+          )}
         </nav>
       </div>
     </div>

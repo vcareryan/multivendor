@@ -6,7 +6,15 @@ import { useCart } from '@/lib/cart-store';
 import { InstallButton } from '@/components/pwa/InstallButton';
 import { NavDrawer, NAV_LINKS } from '@/components/storefront/NavDrawer';
 
-export function Header({ storeName, logoUrl }: { storeName: string; logoUrl?: string | null }) {
+export function Header({
+  storeName,
+  logoUrl,
+  menuLinks = [],
+}: {
+  storeName: string;
+  logoUrl?: string | null;
+  menuLinks?: { href: string; label: string }[];
+}) {
   const count = useCart((s) => s.count());
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -15,7 +23,7 @@ export function Header({ storeName, logoUrl }: { storeName: string; logoUrl?: st
     <header className="sticky top-0 z-30 border-b border-black/5 bg-[rgb(var(--color-surface))]/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
         <div className="flex items-center gap-1.5">
-          <NavDrawer storeName={storeName} logoUrl={logoUrl} />
+          <NavDrawer storeName={storeName} logoUrl={logoUrl} extraLinks={menuLinks} />
           <Link href="/" className="flex items-center gap-2">
             {logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element

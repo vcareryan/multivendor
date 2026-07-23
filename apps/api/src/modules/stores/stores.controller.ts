@@ -51,6 +51,13 @@ export class StoresController {
     return this.stores.getCheckoutSettings();
   }
 
+  @Public()
+  @Get('store/legal')
+  @ApiOperation({ summary: 'Public legal/policy page content (privacy, terms, refund)' })
+  legal() {
+    return this.stores.getLegal();
+  }
+
   // ---- Admin: store profile ----
   @UseGuards(TenantGuard)
   @Roles(UserRole.STORE_OWNER, UserRole.STORE_MANAGER, UserRole.STAFF)

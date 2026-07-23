@@ -1,0 +1,15 @@
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { apiServer } from '@/lib/api';
+import { LegalArticle } from '@/components/storefront/LegalArticle';
+
+export const dynamic = 'force-dynamic';
+export const metadata: Metadata = { title: 'Terms & Conditions' };
+
+interface Legal { privacy: string | null; terms: string | null; refund: string | null }
+
+export default async function TermsPage() {
+  const legal = await apiServer<Legal>('/store/legal').catch(() => null);
+  if (!legal?.terms) notFound();
+  return <LegalArticle title="Terms & Conditions" content={legal.terms} />;
+}
