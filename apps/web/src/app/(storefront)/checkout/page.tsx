@@ -51,8 +51,9 @@ export default function CheckoutPage() {
   }, []);
 
   const cartPayload = items.map((i) => ({ productId: i.productId, variantId: i.variantId ?? undefined, quantity: i.quantity, addonIds: i.addonIds }));
-  // OTP is shown ONLY when the store enables it — not hardcoded per channel.
-  const requireOtp = !!config && (config.checkout.requireOtpBeforeAddress || config.checkout.requireLogin);
+  // OTP is shown ONLY when the store's "Require OTP before entering address"
+  // setting is on — exactly mirroring the admin toggle, for both channels.
+  const requireOtp = !!config && config.checkout.requireOtpBeforeAddress;
 
   if (!config) return <p className="py-12 text-center text-[rgb(var(--color-muted))]">Loading…</p>;
   if (items.length === 0 && step === 'form') return <p className="py-12 text-center">Your cart is empty.</p>;

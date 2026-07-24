@@ -42,14 +42,14 @@ export class CheckoutService {
    * Create the order. Order is ALWAYS persisted before any redirect/payment.
    *  • WHATSAPP  → returns wa.me link.
    *  • PAY_NOW   → returns payment client params.
-   * OTP is enforced ONLY when the store enables it (requireOtpBeforeAddress or
-   * requireLogin) — the store owner controls this, regardless of channel.
+   * OTP is enforced ONLY when the store's "Require OTP before entering address"
+   * setting is on — mirroring the admin toggle, regardless of channel.
    */
   async createOrder(input: CreateOrderInput) {
     const settings = await this.stores.getCheckoutSettings();
     this.assertChannelAllowed(settings.mode as CheckoutMode, input.channel);
 
-    const needsOtp = settings.requireOtpBeforeAddress || settings.requireLogin;
+    const needsOtp = settings.requireOtpBeforeAddress;
 
     let phoneVerified = false;
     if (needsOtp) {
