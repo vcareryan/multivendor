@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { useCart } from '@/lib/cart-store';
+import { useCustomer } from '@/lib/customer-store';
 import { formatMoney } from '@/lib/format';
 import type { StorefrontConfig } from '@utanstore/shared';
 
@@ -31,6 +33,8 @@ function loadScript(src: string): Promise<boolean> {
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, clear, subtotalMinor } = useCart();
+  const { session } = useCustomer();
+  const [mounted, setMounted] = useState(false);
   const [config, setConfig] = useState<StorefrontConfig | null>(null);
   const [channel, setChannel] = useState<Channel>('WHATSAPP');
   const [form, setForm] = useState({ customerName: '', customerPhone: '', customerEmail: '', deliveryAddress: '', notes: '', couponCode: '' });
@@ -40,6 +44,19 @@ export default function CheckoutPage() {
   const [step, setStep] = useState<'form' | 'processing'>('form');
   const [error, setError] = useState<string | null>(null);
   const [quote, setQuote] = useState<Quote | null>(null);
+
+  useEffect(() => setMounted(true), []);
+
+  // Prefill the form from the signed-in customer session.
+  useEffect(() => {
+    if (!session) return;
+    setForm((f) => ({
+      ...f,
+      customerName: f.customerName || session.customer.name || '',
+      customerPhone: f.customerPhone || session.customer.phone || '',
+      customerEmail: f.customerEmail || session.customer.email || '',
+    }));
+  }, [session]);
 
   useEffect(() => {
     api.get<StorefrontConfig>('/store/config').then((c) => {
@@ -95,6 +112,7 @@ export default function CheckoutPage() {
         couponCode: form.couponCode || undefined,
         items: cartPayload,
         otpToken: otpToken || undefined,
+        customerToken: session?.token || undefined,
         locale: config!.store.defaultLocale,
       };
       const res = await api.post<{ order: { id: string }; channel: Channel; waLink?: string; payment?: Record<string, unknown> }>('/checkout/create-order', payload);
@@ -138,15 +156,32 @@ export default function CheckoutPage() {
     router.push(`/order/${orderId}/success`);
   }
 
+  // The store can require a signed-in customer before checkout.
+  const requireLoginGate = config.checkout.requireLogin && mounted && !session;
+
   const canPlace =
     form.customerName.length > 1 &&
     form.customerPhone.length >= 8 &&
     (channel === 'WHATSAPP' || !!form.deliveryAddress) &&
-    (!requireOtp || !!otpToken);
+    (!requireOtp || !!otpToken) &&
+    !requireLoginGate;
 
   return (
     <div className="mx-auto max-w-xl">
       <h1 className="mb-4 font-heading text-2xl font-semibold">Checkout</h1>
+
+      {requireLoginGate && (
+        <div className="mb-5 rounded-theme border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
+          Please sign in to place your order.{' '}
+          <Link href="/account?redirect=/checkout" className="font-semibold underline">Sign in / Register</Link>
+        </div>
+      )}
+
+      {mounted && session && (
+        <p className="mb-4 text-sm text-[rgb(var(--color-muted))]">
+          Signed in as <span className="font-medium">{session.customer.name || session.customer.phone}</span>
+        </p>
+      )}
 
       {showChoice && (
         <div className="mb-5 grid grid-cols-2 gap-3">

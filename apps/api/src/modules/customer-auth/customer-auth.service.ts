@@ -1,11 +1,12 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { CustomerAuthMethod, type CustomerSessionPayload } from '@utanstore/shared';
+import { CustomerAuthMethod, OtpPurpose, type CustomerSessionPayload } from '@utanstore/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { getRequestContext } from '../../common/context/request-context';
 import { IntegrationsService } from '../integrations/integrations.service';
 import { CustomersService } from '../customers/customers.service';
+import { OtpService } from '../otp/otp.service';
 import type { Env } from '../../config/env.validation';
 
 @Injectable()
@@ -14,9 +15,37 @@ export class CustomerAuthService {
     private readonly prisma: PrismaService,
     private readonly integrations: IntegrationsService,
     private readonly customers: CustomersService,
+    private readonly otp: OtpService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService<Env, true>,
   ) {}
+
+  /** Step 1 of phone login: send an OTP (works in TEST mode without a provider). */
+  async startLogin(phone: string, ip?: string) {
+    this.tenantId();
+    return this.otp.send({ phone, purpose: OtpPurpose.CUSTOMER_LOGIN, ip });
+  }
+
+  /**
+   * Step 2: verify the OTP, find-or-create the customer, and issue a 30-day
+   * storefront session. This is the secure login/registration path.
+   */
+  async verifyLogin(phone: string, code: string, name?: string) {
+    const tenantId = this.tenantId();
+    await this.otp.verify({ phone, code, purpose: OtpPurpose.CUSTOMER_LOGIN }); // throws on bad/expired code
+    const customer = await this.customers.findOrCreateByPhone({ phone, name, phoneVerified: true });
+    const token = await this.issueSession(customer.id, tenantId, customer.phone, true);
+    return { token, customer: { id: customer.id, name: customer.name, phone: customer.phone, email: customer.email } };
+  }
+
+  /** Return the current customer for a session token (or null). */
+  async me(token: string) {
+    const session = await this.validateSession(token);
+    if (!session || session.tenantId !== this.tenantId()) return null;
+    const customer = await this.prisma.client.customer.findFirst({ where: { id: session.sub } });
+    if (!customer) return null;
+    return { id: customer.id, name: customer.name, phone: customer.phone, email: customer.email };
+  }
 
   private tenantId(): string {
     const t = getRequestContext()?.tenantId;
