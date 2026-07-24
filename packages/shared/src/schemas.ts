@@ -228,7 +228,8 @@ export const createOrderSchema = z.object({
   notes: z.string().max(1000).nullable().optional(),
   items: z.array(cartItemSchema).min(1),
   couponCode: z.string().max(40).nullable().optional(),
-  otpToken: z.string().max(400).nullable().optional(), // required for PAY_NOW
+  otpToken: z.string().max(400).nullable().optional(), // required when OTP-before-address is on
+  customerToken: z.string().max(600).nullable().optional(), // customer session (when login required)
   locale: zEnum(Locale).default(Locale.EN),
 });
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;

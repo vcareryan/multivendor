@@ -9,6 +9,7 @@ import { OrdersService } from '../orders/orders.service';
 import { OtpService } from '../otp/otp.service';
 import { StoresService } from '../stores/stores.service';
 import { PaymentsService } from '../payments/payments.service';
+import { CustomerAuthService } from '../customer-auth/customer-auth.service';
 
 @Injectable()
 export class CheckoutService {
@@ -17,6 +18,7 @@ export class CheckoutService {
     private readonly otp: OtpService,
     private readonly stores: StoresService,
     private readonly payments: PaymentsService,
+    private readonly customerAuth: CustomerAuthService,
   ) {}
 
   /** Price preview + which checkout channels the store allows. */
@@ -48,6 +50,13 @@ export class CheckoutService {
   async createOrder(input: CreateOrderInput) {
     const settings = await this.stores.getCheckoutSettings();
     this.assertChannelAllowed(settings.mode as CheckoutMode, input.channel);
+
+    // When the store requires customer login, a valid customer session is
+    // mandatory to place an order.
+    if (settings.requireLogin) {
+      const session = input.customerToken ? await this.customerAuth.validateSession(input.customerToken) : null;
+      if (!session) throw new ForbiddenException('Please sign in to place your order');
+    }
 
     const needsOtp = settings.requireOtpBeforeAddress;
 
