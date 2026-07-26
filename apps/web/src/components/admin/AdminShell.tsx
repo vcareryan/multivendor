@@ -36,6 +36,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [me, setMe] = useState<Me | null>(null);
+  const [navOpen, setNavOpen] = useState(false);
 
   // Auth check runs in the BACKGROUND — the shell renders immediately so the
   // panel feels instant (no full-screen "Loading…" gate). We only redirect if
@@ -49,6 +50,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       });
   }, [router]);
 
+  // Close the mobile drawer whenever the route changes.
+  useEffect(() => {
+    setNavOpen(false);
+  }, [pathname]);
+
   async function logout() {
     await api.post('/auth/logout').catch(() => undefined);
     router.replace('/admin/login');
@@ -56,9 +62,36 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-slate-50">
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
-        <div className="p-4 text-lg font-semibold text-emerald-700">Admin Panel</div>
-        <nav className="flex flex-1 flex-col gap-0.5 px-2 pb-4 text-sm">
+      {/* Mobile overlay — dims the page behind the drawer */}
+      {navOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-slate-900/40 md:hidden"
+          aria-hidden="true"
+          onClick={() => setNavOpen(false)}
+        />
+      )}
+
+      {/* Sidebar: static on desktop, slide-in drawer on mobile */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-60 shrink-0 transform flex-col border-r border-slate-200 bg-white transition-transform duration-200 ease-in-out md:static md:z-auto md:translate-x-0 ${
+          navOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex items-center justify-between p-4">
+          <span className="text-lg font-semibold text-emerald-700">Admin Panel</span>
+          <button
+            type="button"
+            aria-label="Close menu"
+            onClick={() => setNavOpen(false)}
+            className="rounded-lg p-1 text-slate-500 hover:bg-slate-100 md:hidden"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-4 text-sm">
           {NAV.map((n) => (
             <Link
               key={n.href}
@@ -74,11 +107,26 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           Developed By Income inn Technologies
         </div>
       </aside>
-      <div className="flex flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
-          <Link href="/admin/account" className="text-sm text-slate-500 hover:text-emerald-700">
-            {me?.email ?? 'My account'}
-          </Link>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 py-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="Open menu"
+              aria-expanded={navOpen}
+              onClick={() => setNavOpen(true)}
+              className="rounded-lg border border-slate-300 p-1.5 text-slate-600 hover:bg-slate-50 md:hidden"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+            <Link href="/admin/account" className="text-sm text-slate-500 hover:text-emerald-700">
+              {me?.email ?? 'My account'}
+            </Link>
+          </div>
           <button onClick={logout} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50">
             Logout
           </button>

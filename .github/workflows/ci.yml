@@ -45,6 +45,8 @@ jobs:
       ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       APP_BASE_DOMAIN: utanstore.com
       SUPERADMIN_PASSWORD: ci-superadmin-password
+      # Demo store owner password — the e2e smoke test logs in as this seeded user:
+      DEMO_OWNER_PASSWORD: e2e-demo-owner-123
       S3_ENDPOINT: http://localhost:9000
       S3_BUCKET: utanstore
       S3_ACCESS_KEY: minioadmin
@@ -89,8 +91,11 @@ jobs:
       - name: Apply Row-Level Security policies
         run: pnpm --filter @utanstore/db run rls
 
-      - name: Seed base data (plans, templates, super-admin)
+      - name: Seed base data (plans, templates, super-admin, demo store)
         run: pnpm --filter @utanstore/db run seed
+        env:
+          # The e2e smoke test runs against the seeded demo store.
+          SEED_DEMO: "true"
 
       - name: Unit tests
         run: pnpm --filter @utanstore/api test
