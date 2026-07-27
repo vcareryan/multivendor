@@ -7,6 +7,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { DomainsService } from './modules/domains/domains.service';
 import type { Env } from './config/env.validation';
 
 async function bootstrap(): Promise<void> {
@@ -29,8 +30,28 @@ async function bootstrap(): Promise<void> {
 
   const webUrl = config.get('WEB_URL', { infer: true });
   const baseDomain = config.get('APP_BASE_DOMAIN', { infer: true });
+  const domainsService = app.get(DomainsService);
+  const localhostRe = /^https?:\/\/localhost(:\d+)?$/;
+  // Allow: the platform web origin, any store subdomain (*.baseDomain), localhost,
+  // and any VERIFIED custom store domain — so storefronts on a customer's own
+  // domain can call the API from the browser (e.g. the checkout page).
   app.enableCors({
-    origin: [webUrl, new RegExp(`\\.${baseDomain.replace('.', '\\.')}$`), /localhost:\d+$/],
+    origin: (origin, callback) => {
+      // Non-browser clients (curl, SSR, same-origin) send no Origin header.
+      if (!origin) return callback(null, true);
+      if (origin === webUrl || localhostRe.test(origin)) return callback(null, true);
+      let host: string;
+      try {
+        host = new URL(origin).hostname;
+      } catch {
+        return callback(null, false);
+      }
+      if (host === baseDomain || host.endsWith(`.${baseDomain}`)) return callback(null, true);
+      domainsService
+        .isAllowedCorsHost(host)
+        .then((ok) => callback(null, ok))
+        .catch(() => callback(null, false));
+    },
     credentials: true,
   });
 
