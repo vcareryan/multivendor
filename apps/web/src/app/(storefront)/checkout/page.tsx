@@ -7,7 +7,7 @@ import { api } from '@/lib/api-client';
 import { useCart } from '@/lib/cart-store';
 import { useCustomer } from '@/lib/customer-store';
 import { formatMoney } from '@/lib/format';
-import type { StorefrontConfig } from '@utanstore/shared';
+import { normalizePhone, type StorefrontConfig } from '@utanstore/shared';
 
 type Channel = 'WHATSAPP' | 'PAY_NOW';
 
@@ -77,6 +77,11 @@ export default function CheckoutPage() {
 
   const mode = config.checkout.mode;
   const showChoice = mode === 'BOTH';
+
+  // Validate the phone for BOTH channels (WhatsApp order links + Pay Now +
+  // OTP all rely on a real, dial-able number).
+  const phoneValid = normalizePhone(form.customerPhone).valid;
+  const showPhoneError = form.customerPhone.trim().length > 0 && !phoneValid;
 
   async function sendOtp() {
     setError(null);
@@ -161,7 +166,7 @@ export default function CheckoutPage() {
 
   const canPlace =
     form.customerName.length > 1 &&
-    form.customerPhone.length >= 8 &&
+    phoneValid &&
     (channel === 'WHATSAPP' || !!form.deliveryAddress) &&
     (!requireOtp || !!otpToken) &&
     !requireLoginGate;
@@ -194,14 +199,17 @@ export default function CheckoutPage() {
         <Field label="Full name" value={form.customerName} onChange={(v) => setForm({ ...form, customerName: v })} />
         <div className="flex items-end gap-2">
           <div className="flex-1">
-            <Field label="Phone number" value={form.customerPhone} onChange={(v) => setForm({ ...form, customerPhone: v })} />
+            <Field label="Phone number" value={form.customerPhone} onChange={(v) => setForm({ ...form, customerPhone: v })} type="tel" inputMode="tel" placeholder="+91 98765 43210" />
           </div>
           {requireOtp && !otpToken && (
-            <button onClick={sendOtp} className="mb-0.5 rounded-theme border border-brand px-3 py-2 text-sm text-brand">
+            <button onClick={sendOtp} disabled={!phoneValid} className="mb-0.5 rounded-theme border border-brand px-3 py-2 text-sm text-brand disabled:opacity-50">
               {otpSent ? 'Resend' : 'Send OTP'}
             </button>
           )}
         </div>
+        {showPhoneError && (
+          <p className="-mt-1 text-xs text-red-500">Enter a valid phone number with country code (e.g. +91 98765 43210).</p>
+        )}
 
         {requireOtp && otpSent && !otpToken && (
           <div className="flex items-end gap-2">
@@ -243,11 +251,32 @@ export default function CheckoutPage() {
   );
 }
 
-function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function Field({
+  label,
+  value,
+  onChange,
+  type = 'text',
+  inputMode,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
+  placeholder?: string;
+}) {
   return (
     <label className="block">
       <span className="mb-1 block text-sm font-medium">{label}</span>
-      <input value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-theme border border-slate-300 px-3 py-2 outline-none focus:border-brand" />
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        type={type}
+        inputMode={inputMode}
+        placeholder={placeholder}
+        className="w-full rounded-theme border border-slate-300 px-3 py-2 outline-none focus:border-brand"
+      />
     </label>
   );
 }
