@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { normalizePhone } from './phone';
 import {
   CheckoutChannel,
   CheckoutMode,
@@ -18,13 +19,25 @@ import {
 
 export const zEnum = <T extends Record<string, string>>(e: T) => z.nativeEnum(e);
 
+/* ------------------------------- Phone --------------------------------- */
+// A real, dial-able phone number (India-first, generic E.164). Reused for the
+// checkout phone (WhatsApp + Pay Now), OTP, and owner registration so every
+// entry point applies the same validation.
+export const PHONE_ERROR = 'Enter a valid phone number with country code (e.g. +91 98765 43210)';
+export const phoneSchema = z
+  .string()
+  .trim()
+  .min(8, PHONE_ERROR)
+  .max(20, PHONE_ERROR)
+  .refine((v) => normalizePhone(v).valid, PHONE_ERROR);
+
 /* ------------------------------- Auth ---------------------------------- */
 export const registerSchema = z.object({
   storeName: z.string().min(2).max(120),
   industry: zEnum(Industry),
   ownerName: z.string().min(2).max(120),
   email: z.string().email(),
-  phone: z.string().min(8).max(20),
+  phone: phoneSchema,
   password: z.string().min(8).max(128),
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
@@ -207,13 +220,13 @@ export const checkoutStartSchema = z.object({
 });
 
 export const sendOtpSchema = z.object({
-  phone: z.string().min(8).max(20),
+  phone: phoneSchema,
   channel: zEnum(OtpChannel).optional(),
   purpose: zEnum(OtpPurpose).default(OtpPurpose.CHECKOUT),
 });
 
 export const verifyOtpSchema = z.object({
-  phone: z.string().min(8).max(20),
+  phone: phoneSchema,
   code: z.string().min(4).max(8),
   purpose: zEnum(OtpPurpose).default(OtpPurpose.CHECKOUT),
 });
@@ -221,7 +234,7 @@ export const verifyOtpSchema = z.object({
 export const createOrderSchema = z.object({
   channel: zEnum(CheckoutChannel),
   customerName: z.string().min(1).max(120),
-  customerPhone: z.string().min(8).max(20),
+  customerPhone: phoneSchema,
   customerEmail: z.string().email().nullable().optional(),
   deliveryAddress: z.string().max(600).nullable().optional(),
   deliveryAreaId: z.string().uuid().nullable().optional(),
