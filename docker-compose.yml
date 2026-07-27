@@ -65,6 +65,9 @@ services:
       APP_BASE_DOMAIN: ${APP_BASE_DOMAIN:-utanstore.com}
       SUPERADMIN_HOST: admin.${APP_BASE_DOMAIN:-utanstore.com}
       WEB_URL: https://${APP_BASE_DOMAIN:-utanstore.com}
+      # Public IP of this server — shown to store owners as the A-record target
+      # for their custom domains (pointed directly here, proxy OFF).
+      SERVER_PUBLIC_IP: ${SERVER_PUBLIC_IP:-}
       # App connects as the NON-privileged RLS role:
       DATABASE_URL: postgresql://${APP_DB_USER:-utan_app}:${APP_DB_PASSWORD:-app_password}@postgres:5432/${POSTGRES_DB:-utanstore}?schema=public
       # Migrations/RLS run as the OWNER role:
