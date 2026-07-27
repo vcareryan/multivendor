@@ -63,14 +63,15 @@ export function InstallButton({ className = '' }: { className?: string }) {
       type="button"
       onClick={install}
       aria-label="Install app"
-      className={`inline-flex items-center gap-1.5 rounded-theme border border-brand/30 px-3 py-1.5 text-sm font-medium text-brand hover:bg-brand/5 ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-theme border border-brand/30 px-2 py-1.5 text-sm font-medium text-brand hover:bg-brand/5 sm:px-3 ${className}`}
     >
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M12 3v12" />
         <path d="m7 10 5 5 5-5" />
         <path d="M5 21h14" />
       </svg>
-      Install App
+      {/* Icon-only on small screens to keep the header uncluttered; full label from sm up. */}
+      <span className="hidden sm:inline">Install App</span>
     </button>
   );
 }
