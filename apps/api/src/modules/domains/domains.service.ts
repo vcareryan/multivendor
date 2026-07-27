@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { resolveTxt } from 'node:dns/promises';
+import { Resolver, resolveTxt } from 'node:dns/promises';
 import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TenantResolutionService } from '../tenant/tenant-resolution.service';
@@ -72,7 +72,7 @@ export class DomainsService {
     let verified = false;
     let reason: string | null = null;
     try {
-      const records = await resolveTxt(`_utanstore-verify.${domain.hostname}`);
+      const records = await this.lookupTxt(`_utanstore-verify.${domain.hostname}`);
       // Some resolvers/providers wrap TXT values in quotes or split them into
       // chunks; normalise (join chunks, strip quotes/whitespace) before matching.
       const token = domain.verificationToken.trim().toLowerCase();
@@ -131,6 +131,29 @@ export class DomainsService {
     }
     const domain = await runBypassingRls(() => this.prisma.client.domain.findFirst({ where: { hostname: h } }));
     return !!domain && domain.status === 'VERIFIED';
+  }
+
+  /**
+   * Resolve TXT records using public resolvers explicitly.
+   *
+   * Inside Docker, Node's c-ares resolver goes through the embedded DNS server
+   * (127.0.0.11), which on some hosts (e.g. Ubuntu + systemd-resolved) fails to
+   * forward TXT queries and returns ENOTFOUND — breaking domain verification.
+   * Querying public resolvers directly avoids that; we fall back to the system
+   * resolver if the explicit servers are unreachable (e.g. local dev).
+   */
+  private async lookupTxt(name: string): Promise<string[][]> {
+    const servers = (process.env.DNS_RESOLVERS ?? '1.1.1.1,8.8.8.8,8.8.4.4')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    try {
+      const resolver = new Resolver();
+      resolver.setServers(servers);
+      return await resolver.resolveTxt(name);
+    } catch {
+      return resolveTxt(name);
+    }
   }
 
   private async getOwn(id: string) {
