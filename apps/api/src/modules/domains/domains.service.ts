@@ -119,6 +119,24 @@ export class DomainsService {
    * Caddy on-demand TLS ask-endpoint. Returns whether a certificate may be
    * issued for the given host (only VERIFIED custom domains + system subdomains).
    */
+  /**
+   * CORS allow-list check for a request Origin's hostname. Mirrors the TLS
+   * allow-list (platform host, store subdomains, VERIFIED custom domains) so
+   * storefront pages on a custom domain can call the API from the browser.
+   * Cached briefly to avoid a DB hit on every CORS pre-flight.
+   */
+  private readonly corsCache = new Map<string, { allowed: boolean; exp: number }>();
+
+  async isAllowedCorsHost(host: string): Promise<boolean> {
+    const h = host.toLowerCase().trim();
+    const now = Date.now();
+    const cached = this.corsCache.get(h);
+    if (cached && cached.exp > now) return cached.allowed;
+    const allowed = await this.isAuthorizedForTls(h);
+    this.corsCache.set(h, { allowed, exp: now + 60_000 });
+    return allowed;
+  }
+
   async isAuthorizedForTls(host: string): Promise<boolean> {
     const h = host.toLowerCase().trim();
     if (h === this.baseDomain || h === `www.${this.baseDomain}` || h === `api.${this.baseDomain}` || h === `admin.${this.baseDomain}`) {
