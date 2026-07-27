@@ -73,9 +73,14 @@ export class DomainsService {
     let reason: string | null = null;
     try {
       const records = await resolveTxt(`_utanstore-verify.${domain.hostname}`);
-      const flat = records.flat().map((r) => r.trim());
-      verified = flat.includes(domain.verificationToken);
-      if (!verified) reason = 'TXT record not found or does not match';
+      // Some resolvers/providers wrap TXT values in quotes or split them into
+      // chunks; normalise (join chunks, strip quotes/whitespace) before matching.
+      const token = domain.verificationToken.trim().toLowerCase();
+      const flat = records.map((chunks) => chunks.join('').trim().replace(/^"(.*)"$/, '$1').toLowerCase());
+      verified = flat.includes(token);
+      if (!verified) {
+        reason = `TXT record for _utanstore-verify.${domain.hostname} not found or does not match. Expected "${domain.verificationToken}".`;
+      }
     } catch (e) {
       reason = `DNS lookup failed: ${(e as Error).message}`;
     }
