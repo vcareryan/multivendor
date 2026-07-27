@@ -8,6 +8,10 @@ export const envSchema = z.object({
   APP_BASE_DOMAIN: z.string().default('utanstore.com'),
   SUPERADMIN_HOST: z.string().default('admin.utanstore.com'),
   WEB_URL: z.string().url().default('http://localhost:3000'),
+  // Public IP of this server. Shown to store owners as the A-record target for
+  // their custom domains (pointed directly here, proxy OFF). Optional: when
+  // unset, the DNS instructions fall back to the CNAME method.
+  SERVER_PUBLIC_IP: z.string().optional(),
 
   DATABASE_URL: z.string(),
   DIRECT_DATABASE_URL: z.string().optional(),

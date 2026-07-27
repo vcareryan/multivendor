@@ -10,6 +10,7 @@ import type { Env } from '../../config/env.validation';
 @Injectable()
 export class DomainsService {
   private readonly baseDomain: string;
+  private readonly serverIp?: string;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -17,6 +18,7 @@ export class DomainsService {
     config: ConfigService<Env, true>,
   ) {
     this.baseDomain = config.get('APP_BASE_DOMAIN', { infer: true });
+    this.serverIp = config.get('SERVER_PUBLIC_IP', { infer: true }) || undefined;
   }
 
   list() {
@@ -46,23 +48,36 @@ export class DomainsService {
   /** Instructions the shop owner must add to their DNS. */
   async instructions(id: string) {
     const domain = await this.getOwn(id);
+    const isWww = domain.hostname.startsWith('www.');
+
+    const verification = {
+      type: 'TXT',
+      name: `_utanstore-verify.${domain.hostname}`,
+      value: domain.verificationToken,
+      purpose: 'Ownership verification',
+    };
+
+    // Preferred: an A record straight to this server (proxy OFF), so the
+    // on-demand Let's Encrypt certificate can be issued at the origin. We only
+    // fall back to the CNAME method when the server IP isn't configured.
+    const routing = this.serverIp
+      ? {
+          type: 'A',
+          name: isWww ? 'www' : '@',
+          value: this.serverIp,
+          purpose: 'Point your domain to the store server — keep the proxy OFF (Cloudflare: grey cloud / "DNS only"). Use "@" for your root domain.',
+        }
+      : {
+          type: 'CNAME',
+          name: isWww ? 'www' : domain.hostname,
+          value: `cname.${this.baseDomain}`,
+          purpose: 'Traffic routing — keep the proxy OFF (Cloudflare: grey cloud / "DNS only").',
+        };
+
     return {
       hostname: domain.hostname,
       status: domain.status,
-      dns: [
-        {
-          type: 'TXT',
-          name: `_utanstore-verify.${domain.hostname}`,
-          value: domain.verificationToken,
-          purpose: 'Ownership verification',
-        },
-        {
-          type: 'CNAME',
-          name: domain.hostname.split('.')[0] === 'www' ? 'www' : domain.hostname,
-          value: `cname.${this.baseDomain}`,
-          purpose: 'Traffic routing (or use an A record to the server IP)',
-        },
-      ],
+      dns: [verification, routing],
     };
   }
 
