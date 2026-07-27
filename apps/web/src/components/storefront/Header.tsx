@@ -49,7 +49,7 @@ export function Header({
         </nav>
 
         <div className="flex items-center gap-1.5">
-          <InstallButton className="hidden sm:inline-flex" />
+          <InstallButton className="inline-flex" />
           <Link href="/search" aria-label="Search" className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-black/5">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
           </Link>
