@@ -16,11 +16,35 @@ interface StoreListResponse {
   total: number;
 }
 
+/** Eye icon (open) */
+function EyeIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+/** Eye-off icon (closed) */
+function EyeOffIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+      <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  );
+}
+
 export default function ResetStorePasswordPage() {
   const [stores, setStores] = useState<Store[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -88,23 +112,45 @@ export default function ResetStorePasswordPage() {
           ))}
         </Select>
 
-        <Input
-          label="New password (min 8 characters)"
-          type="password"
-          autoComplete="new-password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          placeholder="Enter new password"
-        />
+        {/* New password field with show/hide toggle */}
+        <div className="relative">
+          <Input
+            label="New password (min 8 characters)"
+            type={showNewPassword ? 'text' : 'password'}
+            autoComplete="new-password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="Enter new password"
+          />
+          <button
+            type="button"
+            onClick={() => setShowNewPassword(!showNewPassword)}
+            className="absolute right-3 top-[34px] text-slate-400 hover:text-slate-600"
+            aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+          >
+            {showNewPassword ? <EyeOffIcon /> : <EyeIcon />}
+          </button>
+        </div>
 
-        <Input
-          label="Confirm new password"
-          type="password"
-          autoComplete="new-password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          placeholder="Re-enter new password"
-        />
+        {/* Confirm password field with show/hide toggle */}
+        <div className="relative">
+          <Input
+            label="Confirm new password"
+            type={showConfirmPassword ? 'text' : 'password'}
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Re-enter new password"
+          />
+          <button
+            type="button"
+            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            className="absolute right-3 top-[34px] text-slate-400 hover:text-slate-600"
+            aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+          >
+            {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
+          </button>
+        </div>
 
         <div className="flex items-center gap-3">
           <Button
