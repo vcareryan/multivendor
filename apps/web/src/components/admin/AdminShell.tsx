@@ -23,6 +23,7 @@ const NAV = [
   { href: '/admin/settings/legal', label: 'Legal / Policies' },
   { href: '/admin/settings/domain', label: 'Domain' },
   { href: '/admin/settings/subscription', label: 'Subscription' },
+  { href: '/admin/settings/reset-store-password', label: 'Reset Store Password' },
   { href: '/admin/account', label: 'My account' },
 ];
 

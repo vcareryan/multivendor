@@ -46,6 +46,12 @@ export class SuperAdminController {
     return this.superAdmin.setStoreStatus(id, status);
   }
 
+  @Put('stores/:id/reset-password')
+  @ApiOperation({ summary: 'Reset a store owner password (super-admin only)' })
+  resetStorePassword(@Param('id') id: string, @Body('newPassword') newPassword: string) {
+    return this.superAdmin.resetStorePassword(id, newPassword);
+  }
+
   @Post('stores/:id/impersonate')
   @ApiOperation({ summary: 'Impersonate a store owner (support access, audited)' })
   async impersonate(@Param('id') id: string, @Res({ passthrough: true }) res: Response) {

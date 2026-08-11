@@ -193,6 +193,41 @@ export class SuperAdminService {
     return this.prisma.client.systemSetting.upsert({ where: { key }, create: { key, value }, update: { value } });
   }
 
+  // ---- Reset store owner password ----
+  async resetStorePassword(storeId: string, newPassword: string) {
+    const store = await this.prisma.client.store.findUnique({ where: { id: storeId } });
+    if (!store) throw new NotFoundException('Store not found');
+
+    const owner = await this.prisma.client.user.findFirst({
+      where: { tenantId: storeId, role: UserRole.STORE_OWNER },
+    });
+    if (!owner) throw new NotFoundException('Store owner not found');
+
+    if (!newPassword || newPassword.length < 8) {
+      throw new BadRequestException('New password must be at least 8 characters');
+    }
+
+    const passwordHash = await argon2.hash(newPassword);
+    await this.prisma.client.user.update({
+      where: { id: owner.id },
+      data: { passwordHash, failedLoginAttempts: 0, lockedUntil: null },
+    });
+
+    // Revoke all existing sessions for this user so the old password
+    // cannot be used from any device.
+    await this.tokens.revokeAllForUser(owner.id);
+
+    await this.audit.record({
+      action: 'UPDATE',
+      entityType: 'User',
+      entityId: owner.id,
+      metadata: { action: 'password_reset_by_super_admin' },
+      tenantId: storeId,
+    });
+
+    return { ok: true, email: owner.email, message: 'Password has been reset successfully' };
+  }
+
   // ---- Impersonation (support access) ----
   async impersonate(storeId: string) {
     const owner = await this.prisma.client.user.findFirst({ where: { tenantId: storeId, role: UserRole.STORE_OWNER } });
