@@ -12,7 +12,7 @@ interface Store {
 }
 
 interface StoreListResponse {
-  rows: Store[];
+  data: Store[];
   total: number;
 }
 
@@ -29,7 +29,7 @@ export default function ResetStorePasswordPage() {
     api
       .get<StoreListResponse>('/super/stores?pageSize=500')
       .then((res) => {
-        setStores(res.rows);
+        setStores(res.data);
       })
       .catch(() => undefined)
       .finally(() => setLoading(false));
@@ -68,7 +68,7 @@ export default function ResetStorePasswordPage() {
     <div className="max-w-xl space-y-4">
       <PageHeader title="Reset Store Password" />
       <p className="text-sm text-slate-500">
-        As a platform admin, you can reset the password of any tenant store owner. The owner will be signed out of all devices immediately.
+        Reset the password of any tenant store owner. The owner will be signed out of all devices immediately.
       </p>
 
       <Card className="space-y-4">
