@@ -11,6 +11,7 @@ const NAV = [
   { href: '/system/users', label: 'Users' },
   { href: '/system/plans', label: 'Plans' },
   { href: '/system/domains', label: 'Domains' },
+  { href: '/system/reset-password', label: 'Reset Store Password' },
   { href: '/system/account', label: 'My account' },
 ];
 
