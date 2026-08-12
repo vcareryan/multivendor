@@ -1,20 +1,25 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'node:crypto';
 import { ALLOWED_IMAGE_MIME, MAX_IMAGE_BYTES } from '@utanstore/shared';
 import { getRequestContext } from '../../common/context/request-context';
+import { ImageOptimizerService } from './image-optimizer.service';
 import type { Env } from '../../config/env.validation';
 
 @Injectable()
 export class FileUploadService {
+  private readonly logger = new Logger(FileUploadService.name);
   private readonly s3: S3Client;
   private readonly bucket: string;
   private readonly publicUrl: string;
   private readonly mediaBase: string;
 
-  constructor(config: ConfigService<Env, true>) {
+  constructor(
+    config: ConfigService<Env, true>,
+    private readonly optimizer: ImageOptimizerService,
+  ) {
     this.bucket = config.get('S3_BUCKET', { infer: true });
     this.publicUrl = config.get('S3_PUBLIC_URL', { infer: true });
     const baseDomain = config.get('APP_BASE_DOMAIN', { infer: true });
@@ -45,21 +50,43 @@ export class FileUploadService {
   }
 
   /**
-   * Accepts a base64-encoded image, stores it in object storage, and returns a
-   * public URL served back through the API. This works on a single VPS where
-   * MinIO is only reachable on the internal network.
+   * Accepts a base64-encoded image, **optimizes it** (resize + convert to WebP),
+   * stores it in object storage, and returns a public URL served back through
+   * the API. This works on a single VPS where MinIO is only reachable on the
+   * internal network.
+   *
+   * Optimization typically reduces file size by 60-80% while maintaining good
+   * visual quality, significantly extending storage life.
    */
   async uploadImage(params: { filename?: string; contentType: string; dataBase64: string }) {
     this.assertAllowed(params.contentType);
     const base64 = params.dataBase64.includes(',') ? params.dataBase64.split(',')[1] : params.dataBase64;
-    const buffer = Buffer.from(base64, 'base64');
-    if (buffer.length === 0) throw new BadRequestException('Empty file');
-    if (buffer.length > MAX_IMAGE_BYTES) {
+    const rawBuffer = Buffer.from(base64, 'base64');
+    if (rawBuffer.length === 0) throw new BadRequestException('Empty file');
+    if (rawBuffer.length > MAX_IMAGE_BYTES) {
       throw new BadRequestException(`File too large. Max ${(MAX_IMAGE_BYTES / 1024 / 1024).toFixed(0)}MB`);
     }
-    const key = this.keyFor(params.contentType);
+
+    // Optimize: resize to max 1200px and convert to WebP for best compression.
+    const optimized = await this.optimizer.optimize(rawBuffer, {
+      maxWidth: 1200,
+      maxHeight: 1200,
+      quality: 80,
+    });
+
+    this.logger.log(
+      `Image optimized: ${(optimized.originalSize / 1024).toFixed(0)}KB → ${(optimized.optimizedSize / 1024).toFixed(0)}KB ` +
+      `(${Math.round((1 - optimized.optimizedSize / optimized.originalSize) * 100)}% saved)`,
+    );
+
+    const key = this.keyFor(optimized.contentType);
     await this.s3.send(
-      new PutObjectCommand({ Bucket: this.bucket, Key: key, Body: buffer, ContentType: params.contentType }),
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: optimized.buffer,
+        ContentType: optimized.contentType,
+      }),
     );
     return { url: `${this.mediaBase}/${key}`, key };
   }
