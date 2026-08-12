@@ -1,0 +1,128 @@
+# ─────────────────────────────────────────────────────────────────────────
+# UtanStore — production docker-compose for a single VPS.
+# Services: caddy (edge + on-demand TLS), web (Next.js), api (NestJS),
+#           postgres, redis, minio (S3-compatible object storage).
+# ─────────────────────────────────────────────────────────────────────────
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-utan_owner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-owner_password}
+      POSTGRES_DB: ${POSTGRES_DB:-utanstore}
+      APP_DB_USER: ${APP_DB_USER:-utan_app}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-app_password}
+    volumes:
+      - ./docker/volumes/postgres:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-utan_owner}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - ./docker/volumes/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+    volumes:
+      - ./docker/volumes/minio:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      APP_BASE_DOMAIN: ${APP_BASE_DOMAIN:-utanstore.com}
+      SUPERADMIN_HOST: admin.${APP_BASE_DOMAIN:-utanstore.com}
+      WEB_URL: https://${APP_BASE_DOMAIN:-utanstore.com}
+      # Public IP of this server — shown to store owners as the A-record target
+      # for their custom domains (pointed directly here, proxy OFF).
+      SERVER_PUBLIC_IP: ${SERVER_PUBLIC_IP:-}
+      # App connects as the NON-privileged RLS role:
+      DATABASE_URL: postgresql://${APP_DB_USER:-utan_app}:${APP_DB_PASSWORD:-app_password}@postgres:5432/${POSTGRES_DB:-utanstore}?schema=public
+      # Migrations/RLS run as the OWNER role:
+      DIRECT_DATABASE_URL: postgresql://${POSTGRES_USER:-utan_owner}:${POSTGRES_PASSWORD:-owner_password}@postgres:5432/${POSTGRES_DB:-utanstore}?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      COOKIE_DOMAIN: .${APP_BASE_DOMAIN:-utanstore.com}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: ${S3_BUCKET:-utanstore}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
+      S3_PUBLIC_URL: https://cdn.${APP_BASE_DOMAIN:-utanstore.com}
+      S3_FORCE_PATH_STYLE: "true"
+      SEED_ON_START: ${SEED_ON_START:-false}
+    expose:
+      - "4000"
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://api.${APP_BASE_DOMAIN:-utanstore.com}/api/v1
+        NEXT_PUBLIC_BASE_DOMAIN: ${APP_BASE_DOMAIN:-utanstore.com}
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      # Browser-facing (client components) — public HTTPS through Caddy.
+      NEXT_PUBLIC_API_URL: https://api.${APP_BASE_DOMAIN:-utanstore.com}/api/v1
+      NEXT_PUBLIC_BASE_DOMAIN: ${APP_BASE_DOMAIN:-utanstore.com}
+      # Server-side (SSR) — talk to the API directly on the internal network so
+      # Caddy does not rewrite X-Forwarded-Host and break tenant resolution.
+      INTERNAL_API_URL: http://api:4000/api/v1
+      SUPERADMIN_HOST: admin.${APP_BASE_DOMAIN:-utanstore.com}
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - web
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_BASE_DOMAIN: ${APP_BASE_DOMAIN:-utanstore.com}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@utanstore.com}
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./docker/certs:/etc/caddy/certs:ro
+      - ./docker/volumes/caddy-data:/data
+      - ./docker/volumes/caddy-config:/config

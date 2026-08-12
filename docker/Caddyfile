@@ -1,0 +1,56 @@
+{
+	# Global options
+	email {$ACME_EMAIL}
+
+	# On-demand TLS (real Let's Encrypt) — used ONLY for custom store domains that
+	# point directly at this server (not proxied through Cloudflare). Gated by the
+	# API so only VERIFIED domains ever get a certificate.
+	on_demand_tls {
+		ask http://api:4000/api/v1/public/domains/authorize
+	}
+}
+
+# ─────────────────────────────────────────────────────────────
+# Platform hosts (*.{$APP_BASE_DOMAIN}) are served BEHIND Cloudflare.
+# Caddy presents a CLOUDFLARE ORIGIN CERTIFICATE (mounted at /etc/caddy/certs),
+# which Cloudflare trusts in SSL/TLS mode "Full (Strict)" — so the Cloudflare↔
+# origin leg is both encrypted AND authenticated (no MITM gap). No public ACME
+# here, so issuance can never fail behind Cloudflare's proxy — every store works
+# instantly. Cloudflare provides the real public HTTPS, CDN and WAF.
+#
+# SETUP (one-time): create an Origin Certificate in Cloudflare (SSL/TLS → Origin
+# Server) for `utanshop.com, *.utanshop.com`, save the cert as origin.pem and the
+# key as origin.key in ./docker/certs/, then set Cloudflare SSL mode to
+# "Full (Strict)".
+# ─────────────────────────────────────────────────────────────
+api.{$APP_BASE_DOMAIN} {
+	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+	reverse_proxy api:4000
+}
+
+{$APP_BASE_DOMAIN}, www.{$APP_BASE_DOMAIN} {
+	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+	encode zstd gzip
+	reverse_proxy web:3000
+}
+
+# Store subdomains (<slug>.{$APP_BASE_DOMAIN}) + admin.{$APP_BASE_DOMAIN}
+*.{$APP_BASE_DOMAIN} {
+	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+	encode zstd gzip
+	reverse_proxy web:3000
+}
+
+# ─────────────────────────────────────────────────────────────
+# Custom store domains (a shop owner's OWN domain, pointed directly at this
+# server — not through the platform's Cloudflare). These need a real,
+# browser-trusted certificate, issued on demand via Let's Encrypt and gated by
+# the ask-endpoint above.
+# ─────────────────────────────────────────────────────────────
+https:// {
+	tls {
+		on_demand
+	}
+	encode zstd gzip
+	reverse_proxy web:3000
+}
