@@ -15,7 +15,7 @@ export interface StoreProduct {
   trackInventory: boolean;
   isPreOrder: boolean;
   images: { url: string; alt?: string | null }[];
-  variants?: { id: string }[];
+  variants?: { id: string; priceMinor?: number; salePriceMinor?: number | null; isActive?: boolean }[];
 }
 
 export function ProductCard({
@@ -29,6 +29,12 @@ export function ProductCard({
 }) {
   const add = useCart((s) => s.add);
   const price = product.salePriceMinor ?? product.priceMinor;
+  // Variant-priced products show "From ₹<lowest>" when option prices differ.
+  const variantPrices = (product.variants ?? [])
+    .filter((v) => v.isActive !== false && v.priceMinor != null)
+    .map((v) => v.salePriceMinor ?? v.priceMinor!);
+  const showFrom = new Set(variantPrices).size > 1;
+  const displayPrice = variantPrices.length ? Math.min(...variantPrices) : price;
   const onSale = product.salePriceMinor != null && product.salePriceMinor < product.priceMinor;
   const discount = onSale ? Math.round(((product.priceMinor - price) / product.priceMinor) * 100) : 0;
   const soldOut = product.trackInventory && product.stock <= 0 && !product.isPreOrder;
@@ -64,7 +70,10 @@ export function ProductCard({
           <p className="line-clamp-1 text-xs text-[rgb(var(--color-muted))]">{product.description}</p>
         )}
         <div className="mt-auto flex items-baseline gap-2 pt-1">
-          <span className="font-semibold">{formatMoney(price, currency)}</span>
+          <span className="font-semibold">
+            {showFrom && <span className="mr-1 text-xs font-normal text-[rgb(var(--color-muted))]">From</span>}
+            {formatMoney(displayPrice, currency)}
+          </span>
           {onSale && <span className="text-xs text-[rgb(var(--color-muted))] line-through">{formatMoney(product.priceMinor, currency)}</span>}
         </div>
       </div>

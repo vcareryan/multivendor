@@ -601,6 +601,7 @@ model ProductVariant {
   stock          Int     @default(0)
   weightGrams    Int?
   isActive       Boolean @default(true)
+  position       Int     @default(0) // display order on the product page
 
   orderItems OrderItem[]
 

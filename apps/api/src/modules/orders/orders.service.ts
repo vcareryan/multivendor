@@ -76,9 +76,16 @@ export class OrdersService {
       let variantLabel: string | null = null;
       let variantId: string | null = null;
 
+      const activeVariants = product.variants.filter((v) => v.isActive);
+      if (!item.variantId && activeVariants.length > 0) {
+        // Variant-priced product: the shopper must pick an option, otherwise
+        // the order would silently fall back to the base product price.
+        throw new BadRequestException(`Please choose an option for "${product.name}"`);
+      }
+
       if (item.variantId) {
-        const variant = product.variants.find((v) => v.id === item.variantId && v.isActive);
-        if (!variant) throw new BadRequestException('Variant unavailable');
+        const variant = activeVariants.find((v) => v.id === item.variantId);
+        if (!variant) throw new BadRequestException(`Selected option for "${product.name}" is no longer available. Please remove it from your cart and add it again.`);
         unitPriceMinor = variant.salePriceMinor ?? variant.priceMinor;
         variantLabel = variant.label;
         variantId = variant.id;

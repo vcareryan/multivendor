@@ -7,6 +7,7 @@ import { formatMoney } from '@/lib/format';
 
 interface Variant {
   id: string;
+  name?: string;
   label: string;
   priceMinor: number;
   salePriceMinor?: number | null;
@@ -36,7 +37,11 @@ export interface ProductDetailData {
 export function ProductDetail({ product, currency }: { product: ProductDetailData; currency: string }) {
   const add = useCart((s) => s.add);
   const router = useRouter();
-  const [variantId, setVariantId] = useState<string | null>(product.variants[0]?.id ?? null);
+  // Default to the first option that can actually be bought.
+  const inStock = (v: Variant) => !product.trackInventory || product.isPreOrder || v.stock > 0;
+  const [variantId, setVariantId] = useState<string | null>(
+    (product.variants.find(inStock) ?? product.variants[0])?.id ?? null,
+  );
   const [addonIds, setAddonIds] = useState<string[]>([]);
   const [qty, setQty] = useState(1);
   const [imgIdx, setImgIdx] = useState(0);
@@ -48,6 +53,12 @@ export function ProductDetail({ product, currency }: { product: ProductDetailDat
     [addonIds, product.addons],
   );
   const unit = basePrice + addonTotal;
+  // Original (pre-sale) price for the strike-through, per selected option.
+  const listPrice = (variant ? variant.priceMinor : product.priceMinor) + addonTotal;
+  const onSale = listPrice > unit;
+  const optionName = product.variants[0]?.name || 'Options';
+  const variantPrices = product.variants.map((v) => v.salePriceMinor ?? v.priceMinor);
+  const pricesDiffer = new Set(variantPrices).size > 1;
   const soldOut = product.trackInventory && (variant ? variant.stock <= 0 : product.stock <= 0) && !product.isPreOrder;
 
   return (
@@ -73,22 +84,45 @@ export function ProductDetail({ product, currency }: { product: ProductDetailDat
 
       <div>
         <h1 className="font-heading text-2xl font-bold">{product.name}</h1>
-        <div className="mt-2 text-2xl font-semibold text-brand">{formatMoney(unit, currency)}</div>
+        <div className="mt-2 flex items-baseline gap-2">
+          <span className="text-2xl font-semibold text-brand">{formatMoney(unit, currency)}</span>
+          {onSale && <span className="text-base text-slate-400 line-through">{formatMoney(listPrice, currency)}</span>}
+          {onSale && (
+            <span className="rounded bg-red-500 px-1.5 py-0.5 text-xs font-bold text-white">
+              -{Math.round(((listPrice - unit) / listPrice) * 100)}%
+            </span>
+          )}
+        </div>
+        {variant && <p className="mt-1 text-sm text-slate-500">{optionName}: {variant.label}</p>}
         {product.description && <p className="mt-4 whitespace-pre-line text-slate-600">{product.description}</p>}
 
         {product.variants.length > 0 && (
           <div className="mt-5">
-            <label className="mb-1 block text-sm font-medium">Options</label>
+            <label className="mb-1 block text-sm font-medium">Choose {optionName.toLowerCase()}</label>
             <div className="flex flex-wrap gap-2">
-              {product.variants.map((v) => (
-                <button
-                  key={v.id}
-                  onClick={() => setVariantId(v.id)}
-                  className={`rounded-theme border px-3 py-1.5 text-sm ${variantId === v.id ? 'border-brand bg-brand text-brand-fg' : 'border-slate-300'}`}
-                >
-                  {v.label}
-                </button>
-              ))}
+              {product.variants.map((v) => {
+                const available = inStock(v);
+                const selected = variantId === v.id;
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    disabled={!available}
+                    onClick={() => setVariantId(v.id)}
+                    title={available ? undefined : 'Out of stock'}
+                    className={`flex flex-col items-center rounded-theme border px-3 py-1.5 text-sm leading-tight disabled:cursor-not-allowed disabled:opacity-40 disabled:line-through ${
+                      selected ? 'border-brand bg-brand text-brand-fg' : 'border-slate-300'
+                    }`}
+                  >
+                    <span>{v.label}</span>
+                    {pricesDiffer && (
+                      <span className={`text-[11px] ${selected ? 'opacity-90' : 'text-slate-500'}`}>
+                        {formatMoney(v.salePriceMinor ?? v.priceMinor, currency)}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

@@ -72,7 +72,7 @@ export class ProductsService {
         include: {
           images: { orderBy: { position: 'asc' } },
           category: { select: { id: true, name: true, slug: true } },
-          variants: opts.publicOnly ? { where: { isActive: true } } : true,
+          variants: opts.publicOnly ? { where: { isActive: true }, orderBy: { position: 'asc' } } : { orderBy: { position: 'asc' } },
           addons: opts.publicOnly ? { where: { isActive: true } } : true,
         },
       }),
@@ -87,7 +87,7 @@ export class ProductsService {
       include: {
         images: { orderBy: { position: 'asc' } },
         category: true,
-        variants: { where: { isActive: true } },
+        variants: { where: { isActive: true }, orderBy: { position: 'asc' } },
         addons: { where: { isActive: true } },
       },
     });
@@ -98,7 +98,7 @@ export class ProductsService {
   async getById(id: string) {
     const product = await this.prisma.client.product.findFirst({
       where: { id, deletedAt: null },
-      include: { images: true, variants: true, addons: true, category: true },
+      include: { images: true, variants: { orderBy: { position: 'asc' } }, addons: true, category: true },
     });
     if (!product) throw new NotFoundException('Product not found');
     return product;
@@ -107,6 +107,7 @@ export class ProductsService {
   async create(input: ProductInput) {
     await this.subscriptions.assertProductQuota();
     const t = this.prisma.tenantId;
+    const derived = deriveFromVariants(input.variants);
     const created = await this.prisma.client.product.create({
       data: {
         tenantId: t,
@@ -117,11 +118,11 @@ export class ProductsService {
         descriptionMl: input.descriptionMl ?? null,
         type: input.type,
         categoryId: input.categoryId ?? null,
-        priceMinor: input.priceMinor,
-        salePriceMinor: input.salePriceMinor ?? null,
+        priceMinor: derived?.priceMinor ?? input.priceMinor,
+        salePriceMinor: derived ? derived.salePriceMinor : input.salePriceMinor ?? null,
         sku: input.sku ?? null,
         barcode: input.barcode ?? null,
-        stock: input.stock ?? 0,
+        stock: derived?.stock ?? input.stock ?? 0,
         trackInventory: input.trackInventory ?? true,
         isActive: input.isActive ?? true,
         isFeatured: input.isFeatured ?? false,
@@ -129,8 +130,9 @@ export class ProductsService {
         weightGrams: input.weightGrams ?? null,
         images: { create: input.imageUrls.map((url, i) => ({ tenantId: t, url, position: i })) },
         variants: {
-          create: input.variants.map((v) => ({
+          create: input.variants.map((v, i) => ({
             tenantId: t,
+            position: v.position ?? i,
             name: v.name,
             label: v.label,
             sku: v.sku ?? null,
@@ -154,13 +156,17 @@ export class ProductsService {
   async update(id: string, input: Partial<ProductInput>) {
     await this.getById(id);
     const t = this.prisma.tenantId;
+    const derived = input.variants ? deriveFromVariants(input.variants) : null;
+    if (derived) {
+      input = { ...input, priceMinor: derived.priceMinor, salePriceMinor: derived.salePriceMinor, stock: derived.stock };
+    }
     // Replace nested collections when provided (simple + predictable for admin UI).
     const updated = await this.prisma.client.$transaction(async () => {
       if (input.imageUrls) {
         await this.prisma.client.productImage.deleteMany({ where: { productId: id } });
       }
       if (input.variants) {
-        await this.prisma.client.productVariant.deleteMany({ where: { productId: id } });
+        await this.syncVariants(id, t, input.variants);
       }
       if (input.addons) {
         await this.prisma.client.productAddon.deleteMany({ where: { productId: id } });
@@ -186,23 +192,6 @@ export class ProductsService {
           ...(input.isPreOrder !== undefined ? { isPreOrder: input.isPreOrder } : {}),
           ...(input.weightGrams !== undefined ? { weightGrams: input.weightGrams } : {}),
           ...(input.imageUrls ? { images: { create: input.imageUrls.map((url, i) => ({ tenantId: t, url, position: i })) } } : {}),
-          ...(input.variants
-            ? {
-                variants: {
-                  create: input.variants.map((v) => ({
-                    tenantId: t,
-                    name: v.name,
-                    label: v.label,
-                    sku: v.sku ?? null,
-                    priceMinor: v.priceMinor,
-                    salePriceMinor: v.salePriceMinor ?? null,
-                    stock: v.stock ?? 0,
-                    weightGrams: v.weightGrams ?? null,
-                    isActive: v.isActive ?? true,
-                  })),
-                },
-              }
-            : {}),
           ...(input.addons
             ? { addons: { create: input.addons.map((a) => ({ tenantId: t, name: a.name, priceMinor: a.priceMinor, isActive: a.isActive ?? true })) } }
             : {}),
@@ -212,6 +201,39 @@ export class ProductsService {
     });
     await this.cache.invalidate();
     return updated;
+  }
+
+  /**
+   * Upsert variants by id so existing variant IDs stay stable across edits
+   * (shopper carts and past orders keep pointing at the same variant).
+   * Variants missing from the payload are removed.
+   */
+  private async syncVariants(productId: string, tenantId: string, variants: NonNullable<ProductInput['variants']>) {
+    const db = this.prisma.client;
+    const existing = await db.productVariant.findMany({ where: { productId }, select: { id: true } });
+    const existingIds = new Set(existing.map((v) => v.id));
+    const keepIds = variants.map((v) => v.id).filter((vid): vid is string => !!vid && existingIds.has(vid));
+
+    await db.productVariant.deleteMany({ where: { productId, id: { notIn: keepIds } } });
+
+    for (const [i, v] of variants.entries()) {
+      const data = {
+        name: v.name,
+        label: v.label,
+        sku: v.sku || null,
+        priceMinor: v.priceMinor,
+        salePriceMinor: v.salePriceMinor ?? null,
+        stock: v.stock ?? 0,
+        weightGrams: v.weightGrams ?? null,
+        isActive: v.isActive ?? true,
+        position: v.position ?? i,
+      };
+      if (v.id && existingIds.has(v.id)) {
+        await db.productVariant.update({ where: { id: v.id }, data });
+      } else {
+        await db.productVariant.create({ data: { ...data, tenantId, productId } });
+      }
+    }
   }
 
   async remove(id: string) {
@@ -227,4 +249,24 @@ export class ProductsService {
     await this.cache.invalidate();
     return updated;
   }
+}
+
+/**
+ * When a product has variants, the product-level price/stock mirror the
+ * cheapest active variant ("from ₹X") and total variant stock, so listings,
+ * sorting and product cards stay correct.
+ */
+function deriveFromVariants(
+  variants: NonNullable<ProductInput['variants']>,
+): { priceMinor: number; salePriceMinor: number | null; stock: number } | null {
+  const active = variants.filter((v) => v.isActive !== false);
+  if (!active.length) return null;
+  const cheapest = active.reduce((a, b) =>
+    (b.salePriceMinor ?? b.priceMinor) < (a.salePriceMinor ?? a.priceMinor) ? b : a,
+  );
+  return {
+    priceMinor: cheapest.priceMinor,
+    salePriceMinor: cheapest.salePriceMinor ?? null,
+    stock: active.reduce((sum, v) => sum + (v.stock ?? 0), 0),
+  };
 }

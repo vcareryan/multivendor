@@ -83,6 +83,7 @@ export const productVariantSchema = z.object({
   stock: z.number().int().min(0).default(0),
   weightGrams: z.number().int().min(0).nullable().optional(),
   isActive: z.boolean().default(true),
+  position: z.number().int().min(0).optional(),
 });
 
 export const productAddonSchema = z.object({
