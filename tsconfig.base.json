@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "declaration": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "baseUrl": ".",
+    "paths": {
+      "@utanstore/shared": ["packages/shared/src/index.ts"],
+      "@utanstore/shared/*": ["packages/shared/src/*"],
+      "@utanstore/db": ["packages/db/src/index.ts"],
+      "@utanstore/config/*": ["packages/config/*"]
+    }
+  },
+  "exclude": ["node_modules", "dist", ".next"]
+}

@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: utanstore
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      NODE_ENV: test
+      # App connects as the non-privileged RLS role:
+      DATABASE_URL: postgresql://utan_app:app_password@localhost:5432/utanstore?schema=public
+      # Migrations/RLS run as the owner (superuser) role:
+      DIRECT_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/utanstore?schema=public
+      REDIS_URL: redis://localhost:6379
+      JWT_ACCESS_SECRET: ci_access_secret_at_least_16_chars
+      JWT_REFRESH_SECRET: ci_refresh_secret_at_least_16_chars
+      ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      APP_BASE_DOMAIN: utanstore.com
+      SUPERADMIN_PASSWORD: ci-superadmin-password
+      # Demo store owner password — the e2e smoke test logs in as this seeded user:
+      DEMO_OWNER_PASSWORD: e2e-demo-owner-123
+      S3_ENDPOINT: http://localhost:9000
+      S3_BUCKET: utanstore
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Version is read from the "packageManager" field in package.json.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Create non-privileged RLS app role
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -d utanstore -c \
+            "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='utan_app') THEN CREATE ROLE utan_app LOGIN PASSWORD 'app_password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS; END IF; GRANT CONNECT ON DATABASE utanstore TO utan_app; END \$\$;"
+
+      - name: Prisma generate
+        run: pnpm --filter @utanstore/db run generate
+
+      - name: Build all packages
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+          NEXT_TELEMETRY_DISABLED: "1"
+
+      - name: Apply migrations
+        run: pnpm --filter @utanstore/db run deploy
+
+      - name: Apply Row-Level Security policies
+        run: pnpm --filter @utanstore/db run rls
+
+      - name: Seed base data (plans, templates, super-admin, demo store)
+        run: pnpm --filter @utanstore/db run seed
+        env:
+          # The e2e smoke test runs against the seeded demo store.
+          SEED_DEMO: "true"
+
+      - name: Unit tests
+        run: pnpm --filter @utanstore/api test
+
+      - name: E2E tests (live DB + Redis boot)
+        run: pnpm --filter @utanstore/api test:e2e
